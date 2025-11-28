@@ -67,6 +67,11 @@ namespace SimpleHitMarker.KillFeed
         /// 阵营（USEC/BEAR/Scav等）
         /// </summary>
         public string Faction { get; set; }
+
+        /// <summary>
+        /// 角色类型（WildSpawnType）
+        /// </summary>
+        public WildSpawnType Role { get; set; }
         
         /// <summary>
         /// 阵营图标纹理（如果有）

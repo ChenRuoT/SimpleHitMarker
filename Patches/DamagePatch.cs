@@ -31,12 +31,12 @@ namespace SimpleHitmarker.DamagePatch
                 }
                 catch { /* ignore nested retrieval errors */ }
 
-                Plugin.Log.LogInfo($"[shm] ApplyDamageInfo called. Damage={damageInfo.Damage}, Aggressor={aggressorId}, Body={bodyPartType}, Collider={colliderType}, Absorbed={absorbed}, HitPoint={damageInfo.HitPoint}");
+                Plugin.Log.LogInfo($"[SimpleHitMarker] ApplyDamageInfo called. Damage={damageInfo.Damage}, Aggressor={aggressorId}, Body={bodyPartType}, Collider={colliderType}, Absorbed={absorbed}, HitPoint={damageInfo.HitPoint}");
             }
             catch (Exception ex)
             {
                 // ���ⲹ������־������Ϸ
-                try { Plugin.Log.LogError($"[shm] ApplyDamageInfo logging error: {ex}"); } catch { }
+                try { Plugin.Log.LogError($"[SimpleHitMarker] ApplyDamageInfo logging error: {ex}"); } catch { }
             }
 
             // ԭ���߼��������У����ı䣩��
@@ -58,18 +58,15 @@ namespace SimpleHitmarker.DamagePatch
 
             //if (bodyPartType != EBodyPart.Head && bodyPartType != EBodyPart.Chest) return;
 
-            // ���� + �洢 HitPoint
-            Plugin.hitDetected = true;
-            Plugin.hitTime = Time.time;
-            Plugin.hitWorldPoint = damageInfo.HitPoint;
-            Plugin.hitDamage = damageInfo.Damage;
+            bool isHeadshot = bodyPartType == EBodyPart.Head;
+            Plugin.RegisterDamageEvent(damageInfo.Damage, damageInfo.HitPoint, isHeadshot);
             
             // 记录最后伤害信息，用于击杀检测
             LastDamageInfo = damageInfo;
             LastBodyPart = bodyPartType;
             LastVictim = __instance;
 
-            Plugin.Log.LogInfo($"[shm] Hit detected. Point={damageInfo.HitPoint}, Damage={damageInfo.Damage}, Body={bodyPartType}, Distance={distance}");
+            Plugin.Log.LogInfo($"[SimpleHitMarker] Hit detected. Point={damageInfo.HitPoint}, Damage={damageInfo.Damage}, Body={bodyPartType}, Distance={distance}");
         }
     }
 }

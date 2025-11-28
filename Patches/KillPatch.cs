@@ -4,6 +4,7 @@ using System;
 using UnityEngine;
 using SimpleHitMarker;
 using SimpleHitMarker.KillFeed;
+using SimpleHitMarker.Localization;
 
 namespace SimpleHitmarker.KillPatch
 {
@@ -21,11 +22,11 @@ namespace SimpleHitmarker.KillPatch
             try
             {
                 Player.OnPlayerDeadStatic += OnPlayerKilled;
-                Plugin.Log.LogInfo("[shm] Kill event subscribed successfully");
+                Plugin.Log.LogInfo("[SimpleHitMarker] Kill event subscribed successfully");
             }
             catch (Exception ex)
             {
-                Plugin.Log.LogError($"[shm] Failed to subscribe kill event: {ex}");
+                Plugin.Log.LogError($"[SimpleHitMarker] Failed to subscribe kill event: {ex}");
             }
         }
         
@@ -37,11 +38,11 @@ namespace SimpleHitmarker.KillPatch
             try
             {
                 Player.OnPlayerDeadStatic -= OnPlayerKilled;
-                Plugin.Log.LogInfo("[shm] Kill event unsubscribed");
+                Plugin.Log.LogInfo("[SimpleHitMarker] Kill event unsubscribed");
             }
             catch (Exception ex)
             {
-                Plugin.Log.LogError($"[shm] Failed to unsubscribe kill event: {ex}");
+                Plugin.Log.LogError($"[SimpleHitMarker] Failed to unsubscribe kill event: {ex}");
             }
         }
         
@@ -51,6 +52,8 @@ namespace SimpleHitmarker.KillPatch
         /// </summary>
         private static void OnPlayerKilled(Player deadPlayer, IPlayer killer, DamageInfoStruct damageInfo, EBodyPart bodyPart)
         {
+            LogKillEventRaw(deadPlayer, killer, damageInfo, bodyPart);
+
             try
             {
                 // 检查是否是本地玩家击杀的（使用 IsYourPlayer 避免 MainPlayer 依赖）
@@ -68,11 +71,15 @@ namespace SimpleHitmarker.KillPatch
                     Plugin.KillFeedUI.AddKill(killInfo);
                 }
                 
-                Plugin.Log.LogInfo($"[shm] Kill detected: {killInfo.PlayerName} (Level {killInfo.PlayerLevel}) by {killer.Profile?.Nickname}");
+                // 播放击杀音效
+                bool isHeadshotKill = bodyPart == EBodyPart.Head;
+                Plugin.PlayKillSound(isHeadshotKill);
+                
+                LogKillInfoDetails(killInfo, killer, damageInfo);
             }
             catch (Exception ex)
             {
-                Plugin.Log.LogError($"[shm] Kill event handler error: {ex}");
+                Plugin.Log.LogError($"[SimpleHitMarker] Kill event handler error: {ex}");
             }
         }
         
@@ -93,19 +100,24 @@ namespace SimpleHitmarker.KillPatch
             // 获取玩家信息
             try
             {
-                killInfo.PlayerName = victim.Profile?.Info?.Nickname ?? "Unknown";
+                string localizedName = LocalizedHelper.Transliterate(victim.Profile?.Info?.Nickname);
+                killInfo.PlayerName = string.IsNullOrWhiteSpace(localizedName) ? "Unknown" : localizedName;
                 killInfo.PlayerLevel = victim.Profile?.Info?.Level ?? 1;
-                
-                // 获取阵营
-                EPlayerSide side = victim.Side;
-                killInfo.Faction = GetFactionName(side);
                 
                 // 获取角色类型（PMC/Scav等）
                 var role = victim.Profile?.Info?.Settings?.Role ?? WildSpawnType.assault;
+                killInfo.Role = role;
+
+                string botType = BotTypeMapping.GetBotType(role);
+                killInfo.FactionIcon = Plugin.GetPmcRankIcon(botType, killInfo.PlayerLevel);
+
+                // 获取阵营（优先角色显示）
+                EPlayerSide side = victim.Side;
+                killInfo.Faction = GetRoleDisplayName(role, side);
             }
             catch (Exception ex)
             {
-                Plugin.Log.LogWarning($"[shm] Error getting player info: {ex}");
+                Plugin.Log.LogWarning($"[SimpleHitMarker] Error getting player info: {ex}");
             }
             
             // 计算距离
@@ -118,14 +130,7 @@ namespace SimpleHitmarker.KillPatch
             // 获取武器信息
             try
             {
-                if (damageInfo.Weapon != null)
-                {
-                    killInfo.KillMethod = damageInfo.Weapon.ShortName ?? "Unknown";
-                }
-                else
-                {
-                    killInfo.KillMethod = damageInfo.DamageType.ToString();
-                }
+                killInfo.KillMethod = GetWeaponName(damageInfo);
             }
             catch
             {
@@ -139,21 +144,34 @@ namespace SimpleHitmarker.KillPatch
         }
         
         /// <summary>
-        /// 获取阵营名称
+        /// 获取角色或阵营名称（优先角色本地化）
+        /// </summary>
+        private static string GetRoleDisplayName(WildSpawnType role, EPlayerSide fallbackSide)
+        {
+            string roleKey = $"WildSpawnType/{role}";
+            string localizedRole = LocalizedHelper.Localized(roleKey);
+            if (!string.IsNullOrWhiteSpace(localizedRole) &&
+                !string.Equals(localizedRole, roleKey, StringComparison.Ordinal))
+            {
+                return localizedRole;
+            }
+
+            return GetFactionName(fallbackSide);
+        }
+
+        /// <summary>
+        /// 获取阵营名称（Side）
         /// </summary>
         private static string GetFactionName(EPlayerSide side)
         {
-            switch (side)
+            string key = $"EPlayerSide/{side}";
+            string localized = LocalizedHelper.LocalizedEnum(side);
+            if (!string.IsNullOrWhiteSpace(localized) && !string.Equals(localized, key, StringComparison.Ordinal))
             {
-                case EPlayerSide.Usec:
-                    return "USEC";
-                case EPlayerSide.Bear:
-                    return "BEAR";
-                case EPlayerSide.Savage:
-                    return "Scav";
-                default:
-                    return "Unknown";
+                return localized;
             }
+
+            return side.ToString();
         }
         
         /// <summary>
@@ -176,6 +194,89 @@ namespace SimpleHitmarker.KillPatch
             }
             
             return baseExp;
+        }
+
+        private static string GetWeaponName(DamageInfoStruct damageInfo)
+        {
+            if (damageInfo.Weapon != null)
+            {
+                string shortNameKey = damageInfo.Weapon.ShortName;
+                string localizedShort = LocalizedHelper.Localized(shortNameKey);
+                if (!string.IsNullOrWhiteSpace(localizedShort) && !string.Equals(localizedShort, shortNameKey, StringComparison.Ordinal))
+                {
+                    return localizedShort;
+                }
+
+                string longNameKey = damageInfo.Weapon.Name;
+                string localizedLong = LocalizedHelper.Localized(longNameKey);
+                if (!string.IsNullOrWhiteSpace(localizedLong) && !string.Equals(localizedLong, longNameKey, StringComparison.Ordinal))
+                {
+                    return localizedLong;
+                }
+
+                return shortNameKey ?? longNameKey ?? damageInfo.Weapon.TemplateId.ToString();
+            }
+
+            return damageInfo.DamageType.ToString();
+        }
+
+        private static void LogKillEventRaw(Player deadPlayer, IPlayer killer, DamageInfoStruct damageInfo, EBodyPart bodyPart)
+        {
+            if (Plugin.Log == null)
+            {
+                return;
+            }
+
+            try
+            {
+                string victimName = deadPlayer?.Profile?.Info?.Nickname ?? "Unknown";
+                string killerName = killer?.Profile?.Nickname ?? "Unknown";
+                string weaponName = damageInfo.Weapon?.ShortName ?? damageInfo.Weapon?.Name ?? damageInfo.DamageType.ToString();
+                float distance = -1f;
+                try
+                {
+                    if (deadPlayer != null && killer != null)
+                    {
+                        distance = Vector3.Distance(deadPlayer.Position, killer.Position);
+                    }
+                }
+                catch
+                {
+                    // ignored, best effort only
+                }
+
+                string distanceText = distance >= 0f ? distance.ToString("0.0") : "n/a";
+                Plugin.Log.LogInfo($"[SimpleHitMarker] Kill event fired. Victim={victimName}, Killer={killerName}, KillerIsLocal={killer?.IsYourPlayer ?? false}, Body={bodyPart}, Damage={damageInfo.Damage}, DamageType={damageInfo.DamageType}, Weapon={weaponName}, Distance={distanceText}");
+            }
+            catch (Exception ex)
+            {
+                try { Plugin.Log.LogError($"[SimpleHitMarker] Kill event logging error: {ex}"); } catch { }
+            }
+        }
+
+        private static void LogKillInfoDetails(KillInfo killInfo, IPlayer killer, DamageInfoStruct damageInfo)
+        {
+            if (Plugin.Log == null || killInfo == null)
+            {
+                return;
+            }
+
+            try
+            {
+                string killerName = killer?.Profile?.Nickname ?? "Unknown";
+                string botType = BotTypeMapping.GetBotType(killInfo.Role);
+                string localizedRole = string.IsNullOrWhiteSpace(killInfo.Faction)
+                    ? killInfo.Role.ToString()
+                    : killInfo.Faction;
+
+                Plugin.Log.LogInfo(
+                    $"[SimpleHitMarker] Kill info => Victim={killInfo.PlayerName} Lv{killInfo.PlayerLevel} ({localizedRole}) Role={killInfo.Role}, BotType={botType}, Killer={killerName}, Body={killInfo.BodyPart}, Headshot={killInfo.IsHeadshot}, Dist={killInfo.Distance:0.0}, Weapon={killInfo.KillMethod}, Exp={killInfo.Experience}, Streak={killInfo.KillStreak}, Damage={damageInfo.Damage}, DamageType={damageInfo.DamageType}"
+                );
+            }
+            catch (Exception ex)
+            {
+                try { Plugin.Log.LogError($"[SimpleHitMarker] Kill info logging error: {ex}"); } catch { }
+            }
         }
     }
 }

@@ -7,11 +7,11 @@ using UnityEngine;
 
 namespace SimpleHitMarker
 {
- // ¼òµ¥µÄÎÆÀí¼ÓÔØÆ÷£¬Ö§³Ö´Ó¸ø¶¨Â·¾¶¼ÓÔØµ¥ÕÅ»ò¶àÕÅÍ¼Æ¬£¬
- // Ê¹ÓÃ·´Éäµ÷ÓÃ Unity µÄ LoadImage£¨ÊµÀý»ò ImageConversion ¾²Ì¬£©ÒÔ¼æÈÝ²»Í¬ÔËÐÐÊ±¡£
+ // ï¿½òµ¥µï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½Ö´Ó¸ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½ï¿½Å»ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½
+ //Ê¹ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Unity ï¿½ï¿½ LoadImageï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ ImageConversion ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½Ý²ï¿½Í¬ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
  public static class TextureLoader
  {
- // ³¢ÊÔ¼ÓÔØµ¥¸öÎÄ¼þÂ·¾¶Îª Texture2D£¬·µ»Ø null Èç¹ûÊ§°Ü
+ //ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½Øµï¿½ï¿½ï¿½ï¿½Ä¼ï¿½Â·ï¿½ï¿½Îª Texture2Dï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ nullï¿½ï¿½ï¿½Ê§ï¿½ï¿½
  public static Texture2D LoadTextureFromFile(string path)
  {
  if (string.IsNullOrEmpty(path)) return null;
@@ -19,7 +19,7 @@ namespace SimpleHitMarker
  {
  if (!File.Exists(path))
  {
- Plugin.Log?.LogDebug($"[shm] TextureLoader: file not found: {path}");
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: file not found: {path}");
  return null;
  }
 
@@ -35,24 +35,24 @@ namespace SimpleHitMarker
  if (loaded)
  {
  tex.Apply();
- Plugin.Log?.LogInfo($"[shm] TextureLoader: loaded texture from {path}");
+ Plugin.Log?.LogInfo($"[SimpleHitMarker] TextureLoader: loaded texture from {path}");
  return tex;
  }
  else
  {
- Plugin.Log?.LogWarning($"[shm] TextureLoader: failed to decode image data: {path}");
+ Plugin.Log?.LogWarning($"[SimpleHitMarker] TextureLoader: failed to decode image data: {path}");
  try { UnityEngine.Object.Destroy(tex); } catch { }
  return null;
  }
  }
  catch (Exception ex)
  {
- Plugin.Log?.LogError($"[shm] TextureLoader exception loading {path}: {ex}");
+ Plugin.Log?.LogError($"[SimpleHitMarker] TextureLoader exception loading {path}: {ex}");
  return null;
  }
  }
 
- //Í¨¹ý¸ø¶¨µÄÄ¿Â¼ºÍÎÄ¼þÃûÁÐ±íÅúÁ¿¼ÓÔØ£¨ÎÄ¼þÃû¿ÉÒÔ°üº¬×ÓÂ·¾¶£©
+ //Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø£ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô°ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½
  public static Dictionary<string, Texture2D> LoadTexturesFromPaths(IEnumerable<string> paths)
  {
  var dict = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
@@ -70,7 +70,7 @@ namespace SimpleHitMarker
  return dict;
  }
 
- // ´Ó²å¼þÄ¿Â¼ÏÂµÄ×ÓÎÄ¼þ¼Ð¼ÓÔØËùÓÐÍ¼Æ¬£¨png/jpg£©²¢·µ»Ø×Öµä£¨ÎÄ¼þÃû->Texture2D£©
+ // ï¿½Ó²ï¿½ï¿½Ä¿Â¼ï¿½Âµï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Ð¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Æ¬ï¿½ï¿½png/jpgï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµä£¨ï¿½Ä¼ï¿½ï¿½ï¿½->Texture2Dï¿½ï¿½
  public static Dictionary<string, Texture2D> LoadAllTexturesInSubfolder(string subfolder)
  {
  try
@@ -79,7 +79,7 @@ namespace SimpleHitMarker
  string folder = Path.Combine(assemblyDir, subfolder ?? string.Empty);
  if (!Directory.Exists(folder))
  {
- Plugin.Log?.LogDebug($"[shm] TextureLoader: subfolder not found: {folder}");
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: subfolder not found: {folder}");
  return new Dictionary<string, Texture2D>();
  }
 
@@ -95,7 +95,7 @@ namespace SimpleHitMarker
  }
  catch (Exception ex)
  {
- Plugin.Log?.LogError($"[shm] TextureLoader: error scanning subfolder {subfolder}: {ex}");
+ Plugin.Log?.LogError($"[SimpleHitMarker] TextureLoader: error scanning subfolder {subfolder}: {ex}");
  return new Dictionary<string, Texture2D>();
  }
  }
@@ -106,26 +106,77 @@ namespace SimpleHitMarker
  called = false;
  try
  {
- // try signatures: LoadImage(byte[]), LoadImage(byte[], bool)
- var instanceMethod = typeof(Texture2D).GetMethod("LoadImage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(byte[]) }, null);
- if (instanceMethod != null)
+ // More robust: find any instance method named "LoadImage" and try to invoke it with sensible args
+ var methods = typeof(Texture2D).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+ .Where(m => string.Equals(m.Name, "LoadImage", StringComparison.OrdinalIgnoreCase)).ToArray();
+ if (methods.Length ==0)
  {
- called = true;
- var res = instanceMethod.Invoke(tex, new object[] { bytes });
- if (res is bool b && b) return true;
+ Plugin.Log?.LogDebug("[SimpleHitMarker] TextureLoader: no instance LoadImage methods found on Texture2D.");
+ return false;
  }
 
- var instanceMethod2 = typeof(Texture2D).GetMethod("LoadImage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(byte[]), typeof(bool) }, null);
- if (instanceMethod2 != null)
+ foreach (var method in methods)
  {
+ try
+ {
+ var pars = method.GetParameters();
+ // We expect first parameter to accept byte[] (or something assignable from it)
+ if (pars.Length ==0)
+ continue;
+ var p0 = pars[0].ParameterType;
+ if (!p0.IsAssignableFrom(typeof(byte[])) && p0 != typeof(object))
+ {
+ // skip unlikely overloads
+ continue;
+ }
  called = true;
- var res = instanceMethod2.Invoke(tex, new object[] { bytes, false });
- if (res is bool b && b) return true;
+ object[] args = null;
+ if (pars.Length ==1)
+ {
+ args = new object[] { bytes };
+ }
+ else if (pars.Length >=2)
+ {
+ // try to supply a sensible second argument if it's a bool (commonly markNonReadable)
+ var p1 = pars[1].ParameterType;
+ if (p1 == typeof(bool))
+ args = new object[] { bytes, false };
+ else
+ args = new object[] { bytes, GetDefault(p1) };
+ }
+ else
+ {
+ args = new object[] { bytes };
+ }
+ var res = method.Invoke(tex, args);
+ if (res is bool b && b)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: instance LoadImage succeeded using method: {method}");
+ return true;
+ }
+ // Some overloads might return void; try checking texture size as a proxy
+ if (method.ReturnType == typeof(void))
+ {
+ if (tex.width >0 && tex.height >0)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: instance LoadImage (void) seemed to succeed using method: {method}");
+ return true;
+ }
+ }
+ }
+ catch (TargetInvocationException tie)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: instance LoadImage invocation error: {tie.InnerException ?? tie}");
+ }
+ catch (Exception ex)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: instance LoadImage error: {ex}");
+ }
  }
  }
  catch (Exception ex)
  {
- Plugin.Log?.LogDebug($"[shm] TextureLoader: instance LoadImage reflection error: {ex}");
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: instance LoadImage reflection error: {ex}");
  }
  return false;
  }
@@ -148,32 +199,95 @@ namespace SimpleHitMarker
  }
  if (imgConvType == null)
  {
- Plugin.Log?.LogDebug("[shm] TextureLoader: ImageConversion type not found in loaded assemblies.");
+ Plugin.Log?.LogDebug("[SimpleHitMarker] TextureLoader: ImageConversion type not found in loaded assemblies.");
+ // As a last-ditch attempt, try direct reference if available at compile time
+ try
+ {
+ // Some Unity versions expose ImageConversion in UnityEngine namespace directly
+ var direct = Type.GetType("UnityEngine.ImageConversion, UnityEngine");
+ if (direct != null) imgConvType = direct;
+ }
+ catch { }
+ if (imgConvType == null) return false;
+ }
+
+ // find any static method named LoadImage that looks like LoadImage(Texture2D, byte[], [bool])
+ var methods = imgConvType.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+ .Where(m => string.Equals(m.Name, "LoadImage", StringComparison.OrdinalIgnoreCase)).ToArray();
+ if (methods.Length ==0)
+ {
+ Plugin.Log?.LogDebug("[SimpleHitMarker] TextureLoader: no static LoadImage methods found on ImageConversion.");
  return false;
  }
 
- // try signatures: static LoadImage(Texture2D, byte[]), LoadImage(Texture2D, byte[], bool)
- var m1 = imgConvType.GetMethod("LoadImage", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(Texture2D), typeof(byte[]) }, null);
- if (m1 != null)
+ foreach (var m in methods)
  {
- called = true;
- var r = m1.Invoke(null, new object[] { tex, bytes });
- if (r is bool br && br) return true;
+ try
+ {
+ var pars = m.GetParameters();
+ if (pars.Length ==0) continue;
+ // first param should be Texture2D or object
+ if (!pars[0].ParameterType.IsAssignableFrom(typeof(Texture2D)) && pars[0].ParameterType != typeof(object)) continue;
+ // second param should accept byte[]
+ if (pars.Length >=2)
+ {
+ if (!pars[1].ParameterType.IsAssignableFrom(typeof(byte[])) && pars[1].ParameterType != typeof(object)) continue;
  }
-
- var m2 = imgConvType.GetMethod("LoadImage", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, new Type[] { typeof(Texture2D), typeof(byte[]), typeof(bool) }, null);
- if (m2 != null)
- {
  called = true;
- var r = m2.Invoke(null, new object[] { tex, bytes, false });
- if (r is bool br && br) return true;
+ object[] args = null;
+ if (pars.Length ==2)
+ {
+ args = new object[] { tex, bytes };
+ }
+ else if (pars.Length >=3)
+ {
+ var p2 = pars[2].ParameterType;
+ if (p2 == typeof(bool))
+ args = new object[] { tex, bytes, false };
+ else
+ args = new object[] { tex, bytes, GetDefault(p2) };
+ }
+ else
+ {
+ // unusual signature, try passing two args
+ args = new object[] { tex, bytes };
+ }
+ var res = m.Invoke(null, args);
+ if (res is bool br && br)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: ImageConversion.LoadImage succeeded using method: {m}");
+ return true;
+ }
+ if (m.ReturnType == typeof(void))
+ {
+ if (tex.width >0 && tex.height >0)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: ImageConversion.LoadImage (void) seemed to succeed using method: {m}");
+ return true;
+ }
+ }
+ }
+ catch (TargetInvocationException tie)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: ImageConversion invocation error: {tie.InnerException ?? tie}");
+ }
+ catch (Exception ex)
+ {
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: ImageConversion reflection error: {ex}");
+ }
  }
  }
  catch (Exception ex)
  {
- Plugin.Log?.LogDebug($"[shm] TextureLoader: ImageConversion reflection error: {ex}");
+ Plugin.Log?.LogDebug($"[SimpleHitMarker] TextureLoader: ImageConversion reflection error: {ex}");
  }
  return false;
+ }
+
+ private static object GetDefault(Type t)
+ {
+ if (t.IsValueType) return Activator.CreateInstance(t);
+ return null;
  }
  }
 }
