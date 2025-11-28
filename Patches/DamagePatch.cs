@@ -11,9 +11,14 @@ namespace SimpleHitmarker.DamagePatch
     [HarmonyPatch(typeof(Player), "ApplyDamageInfo")]
     public class DamagePatch
     {
+        // è®°å½•æœ€åé€ æˆä¼¤å®³çš„ä¿¡æ¯ï¼Œç”¨äºå‡»æ€æ£€æµ‹
+        public static DamageInfoStruct? LastDamageInfo { get; private set; }
+        public static EBodyPart LastBodyPart { get; private set; }
+        public static Player LastVictim { get; private set; }
+        
         static void Postfix(Player __instance, DamageInfoStruct damageInfo, EBodyPart bodyPartType, EBodyPartColliderType colliderType, float absorbed)
         {
-            // µ÷ÊÔÊä³ö£ºÃ¿´Î ApplyDamageInfo ±»µ÷ÓÃÊ±Á¢¼´¼ÇÂ¼Ò»´Î£¨ÓÃÓÚÈ·ÈÏ Harmony ²¹¶¡ÊÇ·ñ´¥·¢£©
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ ApplyDamageInfo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼Ò»ï¿½Î£ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ Harmony ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ñ´¥·ï¿½ï¿½ï¿½
             try
             {
                 string aggressorId = "null";
@@ -30,19 +35,19 @@ namespace SimpleHitmarker.DamagePatch
             }
             catch (Exception ex)
             {
-                // ±ÜÃâ²¹¶¡ÒòÈÕÖ¾±ÀÀ£ÓÎÏ·
+                // ï¿½ï¿½ï¿½â²¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï·
                 try { Plugin.Log.LogError($"[shm] ApplyDamageInfo logging error: {ex}"); } catch { }
             }
 
-            // Ô­ÓĞÂß¼­¼ÌĞøÔËĞĞ£¨²»¸Ä±ä£©¡£
-            // È·±£ÓĞ¹¥»÷ÕßĞÅÏ¢
+            // Ô­ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ğ£ï¿½ï¿½ï¿½ï¿½Ä±ä£©ï¿½ï¿½
+            // È·ï¿½ï¿½ï¿½Ğ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
             IPlayerOwner aggressor = damageInfo.Player;
             if (aggressor?.iPlayer == null) return;
 
-            // Ö»´¦Àí¹¥»÷ÕßÎª±¾µØÍæ¼ÒµÄÇé¿ö£¨ÎÒÃÇ¿ªÇ¹´ò±ğÈË£©
+            // Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½Ç¹ï¿½ï¿½ï¿½ï¿½Ë£ï¿½
             if (!aggressor.iPlayer.IsYourPlayer) return;
 
-            // ¹ıÂË£ºÓĞĞ§ÉËº¦ + ¾àÀë + ÌåÎ»
+            // ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½Ğ§ï¿½Ëºï¿½ + ï¿½ï¿½ï¿½ï¿½ + ï¿½ï¿½Î»
             //if (damageInfo.Damage <= 5f) return;
 
             Player localPlayer = aggressor.iPlayer as Player;
@@ -53,11 +58,16 @@ namespace SimpleHitmarker.DamagePatch
 
             //if (bodyPartType != EBodyPart.Head && bodyPartType != EBodyPart.Chest) return;
 
-            // ´¥·¢ + ´æ´¢ HitPoint
+            // ï¿½ï¿½ï¿½ï¿½ + ï¿½æ´¢ HitPoint
             Plugin.hitDetected = true;
             Plugin.hitTime = Time.time;
             Plugin.hitWorldPoint = damageInfo.HitPoint;
             Plugin.hitDamage = damageInfo.Damage;
+            
+            // è®°å½•æœ€åä¼¤å®³ä¿¡æ¯ï¼Œç”¨äºå‡»æ€æ£€æµ‹
+            LastDamageInfo = damageInfo;
+            LastBodyPart = bodyPartType;
+            LastVictim = __instance;
 
             Plugin.Log.LogInfo($"[shm] Hit detected. Point={damageInfo.HitPoint}, Damage={damageInfo.Damage}, Body={bodyPartType}, Distance={distance}");
         }
