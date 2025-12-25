@@ -29,7 +29,7 @@ namespace SimpleHitmarker.KillPatch
                 Plugin.Log.LogError($"[SimpleHitMarker] Failed to subscribe kill event: {ex}");
             }
         }
-        
+
         /// <summary>
         /// 取消订阅击杀事件
         /// </summary>
@@ -45,7 +45,7 @@ namespace SimpleHitmarker.KillPatch
                 Plugin.Log.LogError($"[SimpleHitMarker] Failed to unsubscribe kill event: {ex}");
             }
         }
-        
+
         /// <summary>
         /// 玩家死亡事件处理
         /// 事件签名：Action<Player, IPlayer, DamageInfoStruct, EBodyPart>
@@ -61,20 +61,20 @@ namespace SimpleHitmarker.KillPatch
                 {
                     return; // 不是本地玩家的击杀
                 }
-                
+
                 // 创建击杀信息
                 var killInfo = CreateKillInfo(deadPlayer, killer, damageInfo, bodyPart);
-                
+
                 // 添加到击杀提示系统
-                if (Plugin.KillFeedUI != null)
+                if (Plugin.Instance.KillFeedUI != null)
                 {
-                    Plugin.KillFeedUI.AddKill(killInfo);
+                    Plugin.Instance.KillFeedUI.AddKill(killInfo);
                 }
-                
+
                 // 播放击杀音效
                 bool isHeadshotKill = bodyPart == EBodyPart.Head;
-                Plugin.PlayKillSound(isHeadshotKill);
-                
+                Plugin.Instance.PlayKillSound(isHeadshotKill);
+
                 LogKillInfoDetails(killInfo, killer, damageInfo);
             }
             catch (Exception ex)
@@ -82,7 +82,7 @@ namespace SimpleHitmarker.KillPatch
                 Plugin.Log.LogError($"[SimpleHitMarker] Kill event handler error: {ex}");
             }
         }
-        
+
         /// <summary>
         /// 创建击杀信息
         /// </summary>
@@ -96,20 +96,20 @@ namespace SimpleHitmarker.KillPatch
                 BodyPart = bodyPart,
                 IsHeadshot = bodyPart == EBodyPart.Head
             };
-            
+
             // 获取玩家信息
             try
             {
                 string localizedName = LocalizedHelper.Transliterate(victim.Profile?.Info?.Nickname);
                 killInfo.PlayerName = string.IsNullOrWhiteSpace(localizedName) ? "Unknown" : localizedName;
                 killInfo.PlayerLevel = victim.Profile?.Info?.Level ?? 1;
-                
+
                 // 获取角色类型（PMC/Scav等）
                 var role = victim.Profile?.Info?.Settings?.Role ?? WildSpawnType.assault;
                 killInfo.Role = role;
 
                 string botType = BotTypeMapping.GetBotType(role);
-                killInfo.FactionIcon = Plugin.GetPmcRankIcon(botType, killInfo.PlayerLevel);
+                killInfo.FactionIcon = Plugin.Instance.GetPmcRankIcon(botType, killInfo.PlayerLevel);
 
                 // 获取阵营（优先角色显示）
                 EPlayerSide side = victim.Side;
@@ -119,14 +119,14 @@ namespace SimpleHitmarker.KillPatch
             {
                 Plugin.Log.LogWarning($"[SimpleHitMarker] Error getting player info: {ex}");
             }
-            
+
             // 计算距离
             try
             {
                 killInfo.Distance = Vector3.Distance(killer.Position, victim.Position);
             }
             catch { }
-            
+
             // 获取武器信息
             try
             {
@@ -136,13 +136,13 @@ namespace SimpleHitmarker.KillPatch
             {
                 killInfo.KillMethod = damageInfo.DamageType.ToString();
             }
-            
+
             // 计算经验值（可以根据游戏规则调整）
             killInfo.Experience = CalculateExperience(killInfo);
-            
+
             return killInfo;
         }
-        
+
         /// <summary>
         /// 获取角色或阵营名称（优先角色本地化）
         /// </summary>
@@ -173,7 +173,7 @@ namespace SimpleHitmarker.KillPatch
 
             return side.ToString();
         }
-        
+
         /// <summary>
         /// 计算经验值
         /// 注意：这里使用估算值，实际经验值应该从游戏统计系统获取
@@ -181,18 +181,18 @@ namespace SimpleHitmarker.KillPatch
         private static int CalculateExperience(KillInfo killInfo)
         {
             int baseExp = 100;
-            
+
             if (killInfo.IsHeadshot)
             {
                 baseExp += 50;
             }
-            
+
             // 可以根据距离、连杀等调整
             if (killInfo.KillStreak > 1)
             {
                 baseExp += killInfo.KillStreak * 25;
             }
-            
+
             return baseExp;
         }
 

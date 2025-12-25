@@ -15,7 +15,7 @@ namespace SimpleHitmarker.DamagePatch
         public static DamageInfoStruct? LastDamageInfo { get; private set; }
         public static EBodyPart LastBodyPart { get; private set; }
         public static Player LastVictim { get; private set; }
-        
+
         static void Postfix(Player __instance, DamageInfoStruct damageInfo, EBodyPart bodyPartType, EBodyPartColliderType colliderType, float absorbed)
         {
             // ���������ÿ�� ApplyDamageInfo ������ʱ������¼һ�Σ�����ȷ�� Harmony �����Ƿ񴥷���
@@ -59,8 +59,8 @@ namespace SimpleHitmarker.DamagePatch
             //if (bodyPartType != EBodyPart.Head && bodyPartType != EBodyPart.Chest) return;
 
             bool isHeadshot = bodyPartType == EBodyPart.Head;
-            Plugin.RegisterDamageEvent(damageInfo.Damage, damageInfo.HitPoint, isHeadshot);
-            
+            Plugin.Instance.RegisterDamageEvent(damageInfo.Damage, damageInfo.HitPoint, isHeadshot);
+
             // 记录最后伤害信息，用于击杀检测
             LastDamageInfo = damageInfo;
             LastBodyPart = bodyPartType;

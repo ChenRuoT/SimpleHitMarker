@@ -10,32 +10,38 @@ namespace SimpleHitMarker.KillFeed
     /// </summary>
     public class KillFeedUI
     {
-        
+        private readonly ConfigurationManager _config;
+
         // 当前显示的击杀信息列表
         private List<ActiveKillDisplay> activeKills = new List<ActiveKillDisplay>();
-        
+
         // 骷髅头纹理
         public Texture2D SkullTexture { get; set; }
         public Texture2D RedSkullTexture { get; set; }
 
+        public KillFeedUI(ConfigurationManager config)
+        {
+            _config = config;
+        }
+
         private float GetAnchorX()
         {
-            float offset = Plugin.KillFeedHorizontalOffset?.Value ?? 220f;
+            float offset = _config.KillFeedHorizontalOffset?.Value ?? 220f;
             return (Screen.width * 0.5f) - offset;
         }
 
         private float GetBlockWidth()
         {
-            float width = Plugin.KillFeedBlockWidth?.Value ?? 420f;
+            float width = _config.KillFeedBlockWidth?.Value ?? 420f;
             return Mathf.Max(100f, width);
         }
 
         private float GetVerticalCenter()
         {
-            float verticalOffset = Plugin.KillFeedVerticalOffset?.Value ?? 0f;
+            float verticalOffset = _config.KillFeedVerticalOffset?.Value ?? 0f;
             return (Screen.height * 0.5f) + verticalOffset;
         }
-        
+
         /// <summary>
         /// 添加新的击杀提示
         /// </summary>
@@ -44,12 +50,12 @@ namespace SimpleHitMarker.KillFeed
             // 计算连杀数
             int killStreak = CalculateKillStreak(killInfo.KillTime);
             killInfo.KillStreak = killStreak;
-            
+
             if (killStreak > 1)
             {
                 PushPreviousSkulls();
             }
-            
+
             // 创建新的显示项
             var display = new ActiveKillDisplay
             {
@@ -58,18 +64,18 @@ namespace SimpleHitMarker.KillFeed
                 SkullTargetOffset = 0f,
                 SkullCurrentOffset = 0f
             };
-            
+
             activeKills.Add(display);
         }
-        
+
         /// <summary>
         /// 计算连杀数
         /// </summary>
         private int CalculateKillStreak(float currentKillTime)
         {
             int streak = 1;
-            float streakWindow = Plugin.StreakWindow?.Value ?? 10f;
-            
+            float streakWindow = _config.StreakWindow?.Value ?? 10f;
+
             foreach (var kill in activeKills)
             {
                 if (currentKillTime - kill.KillInfo.KillTime <= streakWindow)
@@ -77,20 +83,20 @@ namespace SimpleHitMarker.KillFeed
                     streak = Mathf.Max(streak, kill.KillInfo.KillStreak + 1);
                 }
             }
-            
+
             return streak;
         }
-        
+
         /// <summary>
         /// 向左推挤之前的骷髅头
         /// </summary>
         private void PushPreviousSkulls()
         {
-            float skullDisplayDuration = Plugin.SkullDisplayDuration?.Value ?? 2f;
-            float skullSpacing = Plugin.SkullSpacing?.Value ?? 60f;
-            float skullSize = Plugin.SkullSize?.Value ?? 64f;
+            float skullDisplayDuration = _config.SkullDisplayDuration?.Value ?? 2f;
+            float skullSpacing = _config.SkullSpacing?.Value ?? 60f;
+            float skullSize = _config.SkullSize?.Value ?? 64f;
             float shift = Mathf.Max(0f, skullSize + skullSpacing);
-            
+
             foreach (var existing in activeKills)
             {
                 // 如果这个击杀还在显示骷髅头，则向左推
@@ -101,23 +107,23 @@ namespace SimpleHitMarker.KillFeed
                 }
             }
         }
-        
+
         /// <summary>
         /// 更新UI（每帧调用）
         /// </summary>
         public void Update()
         {
             float currentTime = Time.time;
-            float killFeedDuration = Plugin.KillFeedDuration?.Value ?? 5f;
-            float skullDisplayDuration = Plugin.SkullDisplayDuration?.Value ?? 2f;
-            float animationSpeed = Plugin.SkullPushAnimationSpeed?.Value
-                ?? Plugin.SkullAnimationSpeed?.Value
+            float killFeedDuration = _config.KillFeedDuration?.Value ?? 5f;
+            float skullDisplayDuration = _config.SkullDisplayDuration?.Value ?? 2f;
+            float animationSpeed = _config.SkullPushAnimationSpeed?.Value
+                ?? _config.SkullAnimationSpeed?.Value
                 ?? 5f;
             float removalThreshold = Mathf.Max(killFeedDuration, skullDisplayDuration);
-            
+
             // 移除过期的击杀提示
             activeKills.RemoveAll(kill => currentTime - kill.StartTime > removalThreshold);
-            
+
             // 更新骷髅头位置动画
             foreach (var kill in activeKills)
             {
@@ -132,95 +138,95 @@ namespace SimpleHitMarker.KillFeed
                 }
             }
         }
-        
+
         /// <summary>
         /// 绘制UI（在OnGUI中调用）
         /// </summary>
         public void OnGUI()
         {
             if (activeKills.Count == 0) return;
-            
+
             float currentTime = Time.time;
-            float killFeedDuration = Plugin.KillFeedDuration?.Value ?? 5f;
-            float skullDisplayDuration = Plugin.SkullDisplayDuration?.Value ?? 2f;
-            
+            float killFeedDuration = _config.KillFeedDuration?.Value ?? 5f;
+            float skullDisplayDuration = _config.SkullDisplayDuration?.Value ?? 2f;
+
             List<ActiveKillDisplay> textKills = null;
             List<ActiveKillDisplay> skullKills = null;
             foreach (var kill in activeKills)
             {
                 float elapsed = currentTime - kill.StartTime;
-                
+
                 if (elapsed <= killFeedDuration)
                 {
                     textKills ??= new List<ActiveKillDisplay>();
                     textKills.Add(kill);
                 }
-                
+
                 if (elapsed <= skullDisplayDuration)
                 {
                     skullKills ??= new List<ActiveKillDisplay>();
                     skullKills.Add(kill);
                 }
             }
-            
+
             if (skullKills == null && textKills == null)
             {
                 return;
             }
-            
+
             // Compute a dynamic line height: base it on max of faction font, name font, details font and skull size
-            float skullSize = Plugin.SkullSize?.Value ?? 64f;
-            int fontFaction = Plugin.FontSizeFaction?.Value ?? 16;
-            int fontName = Plugin.FontSizePlayerName?.Value ?? 18;
-            int fontDetails = Plugin.FontSizeKillDetails?.Value ?? 14;
+            float skullSize = _config.SkullSize?.Value ?? 64f;
+            int fontFaction = _config.FontSizeFaction?.Value ?? 16;
+            int fontName = _config.FontSizePlayerName?.Value ?? 18;
+            int fontDetails = _config.FontSizeKillDetails?.Value ?? 14;
             // approximate text height as font size * some factor (1.2) to allow for padding
             float textHeightsMax = Mathf.Max(fontFaction, fontName, fontDetails) * 1.2f;
             float lineHeight = Mathf.Clamp(Mathf.Max(textHeightsMax, skullSize * 0.5f), 14f, 200f);
-            float lineSpacing = Plugin.KillFeedLineSpacing?.Value ?? 8f;
+            float lineSpacing = _config.KillFeedLineSpacing?.Value ?? 8f;
             float anchorX = GetAnchorX();
             float anchorY = GetVerticalCenter();
             float blockWidth = GetBlockWidth();
-            
+
             if (skullKills != null)
             {
                 DrawSkullIcons(skullKills, anchorX, anchorY, currentTime);
             }
-            
+
             if (textKills == null || textKills.Count == 0)
             {
                 return;
             }
-            
+
             ActiveKillDisplay latestKill = textKills[textKills.Count - 1];
             float latestElapsed = currentTime - latestKill.StartTime;
             float textAlpha = Mathf.Clamp01(1f - (latestElapsed / killFeedDuration));
-            
+
             // position top row above the skull icons with spacing
-            float topRowY = anchorY - ( (Plugin.SkullSize?.Value ?? 64f) * 0.5f ) - lineSpacing - lineHeight;
+            float topRowY = anchorY - ((_config.SkullSize?.Value ?? 64f) * 0.5f) - lineSpacing - lineHeight;
             DrawFactionLine(latestKill.KillInfo, topRowY, textAlpha, anchorX, lineHeight, blockWidth);
-            
+
             DrawExperienceText(latestKill.KillInfo, anchorX, anchorY, textAlpha, lineHeight);
-            
-            float playerNameY = anchorY + ((Plugin.SkullSize?.Value ?? 64f) * 0.5f) + lineSpacing;
+
+            float playerNameY = anchorY + ((_config.SkullSize?.Value ?? 64f) * 0.5f) + lineSpacing;
             DrawPlayerNameLine(latestKill.KillInfo, playerNameY, textAlpha, anchorX, lineHeight, blockWidth);
-            
+
             float detailsY = playerNameY + lineHeight + lineSpacing;
             DrawKillDetailsLine(latestKill.KillInfo, detailsY, textAlpha, anchorX, lineHeight, blockWidth);
         }
-        
+
         /// <summary>
         /// 绘制第一行：阵营图标和等级/阵营名
         /// </summary>
         private void DrawFactionLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
-            Color factionColor = Plugin.ColorFaction?.Value ?? Color.white;
-            int fontSize = Plugin.FontSizeFaction?.Value ?? 16;
-            float iconSize = Plugin.FactionIconSize?.Value ?? 24f;
+            Color factionColor = _config.ColorFaction?.Value ?? Color.white;
+            int fontSize = _config.FontSizeFaction?.Value ?? 16;
+            float iconSize = _config.FactionIconSize?.Value ?? 24f;
 
             // Ensure faction line is positioned to avoid vertical overlap with skull icon
             // Compute anchor and skull parameters to determine minimal top Y for the faction line
             float anchorY = GetVerticalCenter();
-            float skullSize = Plugin.SkullSize?.Value ?? 64f;
+            float skullSize = _config.SkullSize?.Value ?? 64f;
             float fixedSeparation = 10f;
             float dynamicSeparation = Mathf.Max(6f, skullSize * 0.2f, iconSize * 0.15f);
 
@@ -241,7 +247,7 @@ namespace SimpleHitMarker.KillFeed
 
             // 绘制阵营图标（如果有）
             // vertical offset from config (negative = up, positive = down)
-            float factionIconVerticalOffset = Plugin.FactionIconVerticalOffset?.Value ?? -20f;
+            float factionIconVerticalOffset = _config.FactionIconVerticalOffset?.Value ?? -20f;
             float iconY = yPos + Mathf.Max(0f, (lineHeight - iconSize) * 0.5f) + factionIconVerticalOffset;
             if (info.FactionIcon != null)
             {
@@ -277,14 +283,14 @@ namespace SimpleHitMarker.KillFeed
             // Determine bot-type color from Plugin config (fallback to factionColor)
             Color botColor = factionColor;
             string bt = (botText ?? string.Empty).ToUpperInvariant();
-            if (bt == "USEC") botColor = Plugin.ColorUSEC?.Value ?? botColor;
-            else if (bt == "BEAR") botColor = Plugin.ColorBEAR?.Value ?? botColor;
-            else if (bt == "SCAV" || bt == "SCAVENGER") botColor = Plugin.ColorSCAV?.Value ?? botColor;
-            else if (bt == "BOSS") botColor = Plugin.ColorBOSS?.Value ?? botColor;
-            else if (bt == "FOLLOWER" || bt == "FOLLOWERS") botColor = Plugin.ColorFollower?.Value ?? botColor;
-            else if (bt == "RAIDER") botColor = Plugin.ColorRAIDER?.Value ?? botColor;
-            else if (bt == "ROUGES" || bt == "ROUGE" || bt == "ROGUE") botColor = Plugin.ColorRouges?.Value ?? botColor;
-            else if (bt == "SECTANT") botColor = Plugin.ColorSectant?.Value ?? botColor;
+            if (bt == "USEC") botColor = _config.ColorUSEC?.Value ?? botColor;
+            else if (bt == "BEAR") botColor = _config.ColorBEAR?.Value ?? botColor;
+            else if (bt == "SCAV" || bt == "SCAVENGER") botColor = _config.ColorSCAV?.Value ?? botColor;
+            else if (bt == "BOSS") botColor = _config.ColorBOSS?.Value ?? botColor;
+            else if (bt == "FOLLOWER" || bt == "FOLLOWERS") botColor = _config.ColorFollower?.Value ?? botColor;
+            else if (bt == "RAIDER") botColor = _config.ColorRAIDER?.Value ?? botColor;
+            else if (bt == "ROUGES" || bt == "ROUGE" || bt == "ROGUE") botColor = _config.ColorRouges?.Value ?? botColor;
+            else if (bt == "SECTANT") botColor = _config.ColorSectant?.Value ?? botColor;
 
             GUIStyle botStyle = new GUIStyle(baseStyle);
             botStyle.normal.textColor = new Color(botColor.r, botColor.g, botColor.b, alpha);
@@ -314,7 +320,7 @@ namespace SimpleHitMarker.KillFeed
             Rect botRect = new Rect(startX + (showLevel ? levelSize.x + spacing : 0f), textY, botSize.x, lineHeight);
             GUI.Label(botRect, botContent, botStyle);
         }
-        
+
         /// <summary>
         /// 绘制骷髅头图标（居中）
         /// </summary>
@@ -324,10 +330,10 @@ namespace SimpleHitMarker.KillFeed
             float anchorY,
             float currentTime)
         {
-            float skullDisplayDuration = Plugin.SkullDisplayDuration?.Value ?? 2f;
-            float skullFadeDuration = Plugin.SkullFadeDuration?.Value ?? 0.3f;
-            float skullSize = Plugin.SkullSize?.Value ?? 64f;
-            
+            float skullDisplayDuration = _config.SkullDisplayDuration?.Value ?? 2f;
+            float skullFadeDuration = _config.SkullFadeDuration?.Value ?? 0.3f;
+            float skullSize = _config.SkullSize?.Value ?? 64f;
+
             foreach (var kill in kills)
             {
                 float elapsed = currentTime - kill.StartTime;
@@ -335,59 +341,59 @@ namespace SimpleHitMarker.KillFeed
                 {
                     continue;
                 }
-                
+
                 Texture2D skullTex = kill.KillInfo.IsHeadshot ? RedSkullTexture : SkullTexture;
                 if (skullTex == null)
                 {
                     continue;
                 }
-                
+
                 float skullAlpha = 1f;
                 if (elapsed >= skullDisplayDuration - skullFadeDuration)
                 {
                     float fadeProgress = (elapsed - (skullDisplayDuration - skullFadeDuration)) / skullFadeDuration;
                     skullAlpha = Mathf.Clamp01(1f - fadeProgress);
                 }
-                
+
                 float skullX = anchorX - skullSize - kill.SkullCurrentOffset;
                 float skullY = anchorY - (skullSize * 0.5f);
                 Rect skullRect = new Rect(skullX, skullY, skullSize, skullSize);
-                
+
                 Color originalColor = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, skullAlpha);
                 GUI.DrawTexture(skullRect, skullTex);
                 GUI.color = originalColor;
             }
         }
-        
+
         /// <summary>
         /// 绘制经验值文本（位于锚点右侧）
         /// </summary>
         private void DrawExperienceText(KillInfo info, float anchorX, float anchorY, float alpha, float lineHeight)
         {
-            Color expColor = Plugin.ColorExperience?.Value ?? new Color(1f, 1f, 0.8f, 1f);
-            int expFontSize = Plugin.FontSizeExperience?.Value ?? 20;
-            float expTextWidth = Plugin.ExperienceTextWidth?.Value ?? 180f;
-            float expOffset = Plugin.KillFeedExperienceHorizontalOffset?.Value ?? 40f;
-            
+            Color expColor = _config.ColorExperience?.Value ?? new Color(1f, 1f, 0.8f, 1f);
+            int expFontSize = _config.FontSizeExperience?.Value ?? 20;
+            float expTextWidth = _config.ExperienceTextWidth?.Value ?? 180f;
+            float expOffset = _config.KillFeedExperienceHorizontalOffset?.Value ?? 40f;
+
             GUIStyle expStyle = new GUIStyle(GUI.skin.label);
             expStyle.normal.textColor = new Color(expColor.r, expColor.g, expColor.b, alpha);
             expStyle.fontSize = expFontSize;
             expStyle.fontStyle = FontStyle.Bold;
             expStyle.alignment = TextAnchor.MiddleLeft;
-            
+
             string expText = $"{info.Experience}";
             Rect expRect = new Rect(anchorX + expOffset, anchorY - (lineHeight * 0.5f), expTextWidth, lineHeight);
             GUI.Label(expRect, expText, expStyle);
         }
-        
+
         /// <summary>
         /// 绘制第三行：玩家名称
         /// </summary>
         private void DrawPlayerNameLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
-            Color nameColor = Plugin.ColorPlayerName?.Value ?? new Color(1f, 0.3f, 0.3f, 1f);
-            int fontSize = Plugin.FontSizePlayerName?.Value ?? 18;
+            Color nameColor = _config.ColorPlayerName?.Value ?? new Color(1f, 0.3f, 0.3f, 1f);
+            int fontSize = _config.FontSizePlayerName?.Value ?? 18;
 
             GUIStyle fillStyle = new GUIStyle(GUI.skin.label);
             fillStyle.normal.textColor = new Color(nameColor.r, nameColor.g, nameColor.b, alpha);
@@ -398,8 +404,8 @@ namespace SimpleHitMarker.KillFeed
             GUIStyle outlineStyle = new GUIStyle(fillStyle);
 
             // Use dedicated name outline config (same color as name)
-            float outlineAlpha = Mathf.Clamp01(Plugin.NameOutlineOpacity?.Value ?? 1f);
-            float outlineThickness = Mathf.Clamp(Plugin.NameOutlineThickness?.Value ?? 1.5f, 0.5f, 10f);
+            float outlineAlpha = Mathf.Clamp01(_config.NameOutlineOpacity?.Value ?? 1f);
+            float outlineThickness = Mathf.Clamp(_config.NameOutlineThickness?.Value ?? 1.5f, 0.5f, 10f);
 
             Color outlineColor = new Color(nameColor.r, nameColor.g, nameColor.b, nameColor.a);
             outlineColor.a *= outlineAlpha * alpha; // respect both outline opacity config and overall alpha
@@ -408,25 +414,25 @@ namespace SimpleHitMarker.KillFeed
             Rect nameRect = new Rect(anchorX - blockWidth, yPos, blockWidth, lineHeight);
             GUIContent content = new GUIContent(info.PlayerName ?? "Unknown");
 
-            Plugin.DrawOutlinedLabel(nameRect, content, fillStyle, outlineStyle, outlineThickness);
+            DamageIndicatorUI.DrawOutlinedLabel(nameRect, content, fillStyle, outlineStyle, outlineThickness);
         }
-        
+
         /// <summary>
         /// 绘制第四行：击杀详情
         /// </summary>
         private void DrawKillDetailsLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
-            Color detailsColor = Plugin.ColorKillDetails?.Value ?? new Color(0.8f, 0.8f, 0.8f, 1f);
-            int fontSize = Plugin.FontSizeKillDetails?.Value ?? 14;
-            
+            Color detailsColor = _config.ColorKillDetails?.Value ?? new Color(0.8f, 0.8f, 0.8f, 1f);
+            int fontSize = _config.FontSizeKillDetails?.Value ?? 14;
+
             GUIStyle style = new GUIStyle(GUI.skin.label);
             style.normal.textColor = new Color(detailsColor.r, detailsColor.g, detailsColor.b, alpha);
             style.fontSize = fontSize;
             style.alignment = TextAnchor.MiddleRight;
-            
+
             // 构建详情文本
             List<string> details = new List<string>();
-            
+
             if (info.IsHeadshot)
             {
                 details.Add("爆头");
@@ -434,25 +440,25 @@ namespace SimpleHitMarker.KillFeed
             else if (info.BodyPart != EBodyPart.Head)
             {
                 // 如果不是爆头，显示身体部位（避免重复显示头部）
-                details.Add("部位:"+GetBodyPartName(info.BodyPart));
+                details.Add("部位:" + GetBodyPartName(info.BodyPart));
             }
-            
+
             if (info.Distance > 0)
             {
                 details.Add($"距离:{info.Distance:F0}m");
             }
-            
+
             if (!string.IsNullOrEmpty(info.KillMethod))
             {
-                details.Add("武器:"+info.KillMethod);
+                details.Add("武器:" + info.KillMethod);
             }
-            
+
             string detailsText = string.Join(" · ", details);
-            
+
             Rect detailsRect = new Rect(anchorX - blockWidth, yPos, blockWidth, lineHeight);
             GUI.Label(detailsRect, detailsText, style);
         }
-        
+
         /// <summary>
         /// 获取身体部位的中文名称
         /// </summary>
@@ -495,7 +501,7 @@ namespace SimpleHitMarker.KillFeed
 
             return info.Role.ToString();
         }
-        
+
         /// <summary>
         /// 清理资源
         /// </summary>
@@ -504,7 +510,7 @@ namespace SimpleHitMarker.KillFeed
             activeKills.Clear();
         }
     }
-    
+
     /// <summary>
     /// 活跃的击杀显示项
     /// </summary>
@@ -516,4 +522,3 @@ namespace SimpleHitMarker.KillFeed
         public float SkullCurrentOffset { get; set; }
     }
 }
-
