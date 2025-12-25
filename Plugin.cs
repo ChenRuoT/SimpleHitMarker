@@ -4,6 +4,7 @@ using EFT;
 using HarmonyLib;
 using SimpleHitMarker.KillFeed;
 using SimpleHitmarker.KillPatch;
+using SimpleHitmarker.DamagePatch;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -52,6 +53,8 @@ namespace SimpleHitMarker
 
             // Subscribe to Events
             KillEventManager.Subscribe();
+            new DamageEventManager().Enable();
+            new DamageUnsubscribePatch().Enable();
 
             Log.LogInfo("SimpleHitMarker Plugin is loaded!");
         }
