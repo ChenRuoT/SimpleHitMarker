@@ -49,6 +49,9 @@ namespace SimpleHitmarker.DamagePatch
 
                 // 记录详细信息用于调试
                 Plugin.Log.LogInfo($"[SimpleHitMarker] Hit detected (Event). Point={damageInfo.HitPoint}, Damage={damageInfo.Damage}, Body={bodyPart}, Absorbed={absorbed}");
+                Plugin.Log.LogDebug($"[SimpleHitMarker] Hit Damage Further Info. DamageType={damageInfo.DamageType}, PenetrationPower={damageInfo.PenetrationPower}, ArmorDa" +
+                    $"mage={damageInfo.ArmorDamage}, IsForwardHit={damageInfo.IsForwardHit}, HBleeding={damageInfo.HeavyBleedingDelta}, LBleeding={damageInfo.LightBleedingDelta}" +
+                    $", DidBodyDamage={damageInfo.DidBodyDamage}, DidArmorDamage={damageInfo.DidArmorDamage}, Penetrated={damageInfo.Penetrated}");
             }
             catch (Exception ex)
             {
