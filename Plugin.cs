@@ -3,6 +3,7 @@ using BepInEx.Logging;
 using EFT;
 using HarmonyLib;
 using SimpleHitMarker.KillFeed;
+using SimpleHitMarker.Patches;
 using SimpleHitmarker.KillPatch;
 using SimpleHitmarker.DamagePatch;
 using System;
@@ -17,7 +18,7 @@ namespace SimpleHitMarker
     public class Plugin : BaseUnityPlugin
     {
         public static Plugin Instance { get; private set; }
-        public static new ManualLogSource Log { get; private set; } // Hide base Logger to allow static access if needed, or just assign to it
+        public static new ManualLogSource Log { get; private set; }
 
         public ConfigurationManager ConfigManager { get; private set; }
         public AudioManager Audio { get; private set; }
@@ -43,7 +44,7 @@ namespace SimpleHitMarker
             Audio = new AudioManager(ConfigManager, Log);
             KillFeedUI = new KillFeedUI(ConfigManager);
 
-            // Load Resources for KillFeed (Textures that were previously loaded in Plugin)
+            // Load Resources for KillFeed
             LoadKillFeedResources();
             LoadPmcRankIcons();
 
@@ -56,7 +57,10 @@ namespace SimpleHitMarker
             new DamageEventManager().Enable();
             new DamageUnsubscribePatch().Enable();
 
-            Log.LogInfo("SimpleHitMarker Plugin is loaded!");
+            // Crude but effective: Listen for specific log signals to refresh audio
+            LogInterceptorPatch.Enable();
+
+            Log.LogInfo("SimpleHitMarker Plugin is loaded with polling and log-interceptor!");
         }
 
         private void LoadKillFeedResources()
@@ -96,7 +100,6 @@ namespace SimpleHitMarker
             DamageUI?.Cleanup();
             KillFeedUI?.Cleanup();
 
-            // Clean up Rank Icons
             foreach (var texture in PmcRankIcons.Values)
             {
                 if (texture != null) Destroy(texture);
@@ -105,18 +108,21 @@ namespace SimpleHitMarker
         }
 
         private float _lastAudioCheckTime = 0f;
-        private const float AudioCheckInterval = 5f; // Check every 5 seconds
+        private const float AudioCheckInterval = 2f; // 每2秒主动检查一次
 
         private void Update()
         {
             HandleDebugInput();
             KillFeedUI?.Update();
 
-            // Proactively ensure AudioSource is ready, especially after scene transitions
+            // 恢复轮询：确保音频系统始终就绪
             if (Time.time - _lastAudioCheckTime > AudioCheckInterval)
             {
                 _lastAudioCheckTime = Time.time;
-                Audio?.CheckAndRestoreSource();
+                if (Audio != null)
+                {
+                    Audio.CheckAndRestoreSource();
+                }
             }
         }
 
@@ -137,8 +143,6 @@ namespace SimpleHitMarker
         {
             Audio?.PlayKillSound(isHeadshot);
         }
-
-        // ================== Resource Loading & Helpers ==================
 
         private void LoadPmcRankIcons()
         {
@@ -221,8 +225,6 @@ namespace SimpleHitMarker
             return Mathf.Clamp(tierStart, 5, 75);
         }
 
-        // ================== Debug Logic ==================
-
         private void HandleDebugInput()
         {
             if (ConfigManager?.DebugTriggerKey == null) return;
@@ -231,7 +233,7 @@ namespace SimpleHitMarker
             if (shortcut.IsDown())
             {
                 GenerateDebugHit();
-                GenerateDebugKill();
+                GenerateDebugKill(true);
             }
         }
 
@@ -239,14 +241,14 @@ namespace SimpleHitMarker
         private static readonly string[] DebugNames = { "Tigris", "Northwind", "KappaFox", "Windrunner", "NightOwl", "Skyline" };
         private static readonly string[] DebugKillMethods = { "M4A1", "AK-105", "MP7A2", "SR-25", "SV-98", "UMP-45", "MK17" };
 
-        private void GenerateDebugHit()
+        internal void GenerateDebugHit()
         {
             bool isHeadshot = DebugRandom.NextDouble() > 0.7;
             float damage = Mathf.Round(RandomRange(25f, 120f));
             RegisterDamageEvent(damage, Vector3.zero, isHeadshot);
         }
 
-        private void GenerateDebugKill()
+        internal void GenerateDebugKill(bool isDebug)
         {
             if (KillFeedUI == null) return;
 
@@ -265,7 +267,7 @@ namespace SimpleHitMarker
 
             var killInfo = new KillInfo
             {
-                PlayerName = PickRandom(DebugNames) + (isPmc ? "" : " (Scav)"),
+                PlayerName = isDebug ? PickRandom(DebugNames) + (isPmc ? "" : " (Scav)") : "Nikita",
                 PlayerLevel = level,
                 Role = role,
                 Faction = faction,

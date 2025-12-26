@@ -43,15 +43,21 @@ namespace SimpleHitmarker.DamagePatch
                 // 只有攻击者是本地玩家时才处理
                 if (!aggressor.iPlayer.IsYourPlayer) return;
 
+                // 只有伤害大于0时才处理，规避单发子弹在同个部位多次计算伤害情况
+                if (damageInfo.DidArmorDamage > 0.01f && damageInfo.DidBodyDamage > 0.01f) return;
+
                 // 注册命中事件（显示 UI 和播放音效）
                 bool isHeadshot = bodyPart == EBodyPart.Head;
-                Plugin.Instance.RegisterDamageEvent(damageInfo.Damage, damageInfo.HitPoint, isHeadshot);
+                Plugin.Instance.RegisterDamageEvent(damageInfo.DidBodyDamage, damageInfo.HitPoint, isHeadshot);
 
                 // 记录详细信息用于调试
-                Plugin.Log.LogInfo($"[SimpleHitMarker] Hit detected (Event). Point={damageInfo.HitPoint}, Damage={damageInfo.Damage}, Body={bodyPart}, Absorbed={absorbed}");
-                Plugin.Log.LogDebug($"[SimpleHitMarker] Hit Damage Further Info. DamageType={damageInfo.DamageType}, PenetrationPower={damageInfo.PenetrationPower}, ArmorDa" +
-                    $"mage={damageInfo.ArmorDamage}, IsForwardHit={damageInfo.IsForwardHit}, HBleeding={damageInfo.HeavyBleedingDelta}, LBleeding={damageInfo.LightBleedingDelta}" +
-                    $", DidBodyDamage={damageInfo.DidBodyDamage}, DidArmorDamage={damageInfo.DidArmorDamage}, Penetrated={damageInfo.Penetrated}");
+                if (Plugin.Instance?.ConfigManager?.DebugMode?.Value == true)
+                {
+                    Plugin.Log.LogInfo($"[SimpleHitMarker] Hit detected (Event). Point={damageInfo.HitPoint}, Damage={damageInfo.Damage}, Body={bodyPart}, Absorbed={absorbed}");
+                    Plugin.Log.LogDebug($"[SimpleHitMarker] Hit Damage Further Info. DamageType={damageInfo.DamageType}, PenetrationPower={damageInfo.PenetrationPower}, ArmorDa" +
+                        $"mage={damageInfo.ArmorDamage}, IsForwardHit={damageInfo.IsForwardHit}, HBleeding={damageInfo.HeavyBleedingDelta}, LBleeding={damageInfo.LightBleedingDelta}" +
+                        $", DidBodyDamage={damageInfo.DidBodyDamage}, DidArmorDamage={damageInfo.DidArmorDamage}, Penetrated={damageInfo.Penetrated}");
+                }
             }
             catch (Exception ex)
             {

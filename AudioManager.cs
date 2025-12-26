@@ -185,14 +185,27 @@ namespace SimpleHitMarker
         }
 
         /// <summary>
-        /// Proactively check if the AudioSource is still valid, and recreate it if necessary.
-        /// This should be called from Update to ensure the source is ready before it's needed.
+        /// Proactively check if the AudioSource and AudioClips are still valid, and recreate/reload if necessary.
+        /// This should be called from Update or a Scene transition to ensure the audio system is always ready.
         /// </summary>
         public void CheckAndRestoreSource()
         {
+            // 1. Restore AudioSource component if lost
             if (_audioSource == null || _audioSource.gameObject == null)
             {
+                _log?.LogDebug("[SimpleHitMarker] AudioSource missing, restoring...");
                 GetOrCreateAudioSource();
+            }
+
+            // 2. Proactively check if clips are still in memory
+            // If any critical clip is invalid, reload all of them
+            if (!IsAudioClipValid(_hitSoundClip) ||
+                !IsAudioClipValid(_headshotHitSoundClip) ||
+                !IsAudioClipValid(_killSoundClip) ||
+                !IsAudioClipValid(_headshotKillSoundClip))
+            {
+                _log?.LogInfo("[SimpleHitMarker] Audio clips found invalid in background check, reloading proactively...");
+                ReloadAudioClips();
             }
         }
 

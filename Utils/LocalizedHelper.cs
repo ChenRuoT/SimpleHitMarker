@@ -10,10 +10,12 @@ namespace SimpleHitMarker.Localization
     /// </summary>
     internal static class LocalizedHelper
     {
-        private static readonly MethodInfo LocalizedWithPrefixMethod;
-        private static readonly MethodInfo LocalizedWithCaseMethod;
-        private static readonly MethodInfo TransliterateSingleArgMethod;
-        private static readonly MethodInfo TransliterateWithLocaleMethod;
+        // Delegates for faster invocation
+        private static Func<string, string, string> LocalizedWithPrefixDelegate;
+        private static Func<string, EStringCase, string> LocalizedWithCaseDelegate;
+        private static Func<string, string> TransliterateSingleArgDelegate;
+        private static Func<string, string, string> TransliterateWithLocaleDelegate;
+
         private static readonly bool LocalizationAvailable;
         private static readonly bool TransliterationAvailable;
         private static bool loggedLocalizationError;
@@ -26,41 +28,61 @@ namespace SimpleHitMarker.Localization
                 Type localizationType = RefTool.GetEftType("ParseLocalization");
                 if (localizationType != null)
                 {
-                    LocalizedWithPrefixMethod = localizationType.GetMethod(
+                    var prefixMethod = localizationType.GetMethod(
                         "Localized",
                         BindingFlags.Public | BindingFlags.Static,
                         null,
                         new[] { typeof(string), typeof(string) },
                         null);
 
-                    LocalizedWithCaseMethod = localizationType.GetMethod(
+                    if (prefixMethod != null)
+                    {
+                        LocalizedWithPrefixDelegate = (Func<string, string, string>)Delegate.CreateDelegate(typeof(Func<string, string, string>), prefixMethod);
+                    }
+
+                    var caseMethod = localizationType.GetMethod(
                         "Localized",
                         BindingFlags.Public | BindingFlags.Static,
                         null,
                         new[] { typeof(string), typeof(EStringCase) },
                         null);
+
+                    if (caseMethod != null)
+                    {
+                        LocalizedWithCaseDelegate = (Func<string, EStringCase, string>)Delegate.CreateDelegate(typeof(Func<string, EStringCase, string>), caseMethod);
+                    }
                 }
 
                 Type transliterationType = RefTool.GetEftType("Transliterate");
                 if (transliterationType != null)
                 {
-                    TransliterateSingleArgMethod = transliterationType.GetMethod(
+                    var singleArgMethod = transliterationType.GetMethod(
                         "Transliterate",
                         BindingFlags.Public | BindingFlags.Static,
                         null,
                         new[] { typeof(string) },
                         null);
 
-                    TransliterateWithLocaleMethod = transliterationType.GetMethod(
+                    if (singleArgMethod != null)
+                    {
+                        TransliterateSingleArgDelegate = (Func<string, string>)Delegate.CreateDelegate(typeof(Func<string, string>), singleArgMethod);
+                    }
+
+                    var withLocaleMethod = transliterationType.GetMethod(
                         "Transliterate",
                         BindingFlags.Public | BindingFlags.Static,
                         null,
                         new[] { typeof(string), typeof(string) },
                         null);
+
+                    if (withLocaleMethod != null)
+                    {
+                        TransliterateWithLocaleDelegate = (Func<string, string, string>)Delegate.CreateDelegate(typeof(Func<string, string, string>), withLocaleMethod);
+                    }
                 }
 
-                LocalizationAvailable = LocalizedWithPrefixMethod != null || LocalizedWithCaseMethod != null;
-                TransliterationAvailable = TransliterateSingleArgMethod != null || TransliterateWithLocaleMethod != null;
+                LocalizationAvailable = LocalizedWithPrefixDelegate != null || LocalizedWithCaseDelegate != null;
+                TransliterationAvailable = TransliterateSingleArgDelegate != null || TransliterateWithLocaleDelegate != null;
             }
             catch (Exception ex)
             {
@@ -83,14 +105,14 @@ namespace SimpleHitMarker.Localization
 
             try
             {
-                if (!string.IsNullOrEmpty(prefix) && LocalizedWithPrefixMethod != null)
+                if (!string.IsNullOrEmpty(prefix) && LocalizedWithPrefixDelegate != null)
                 {
-                    return (string)LocalizedWithPrefixMethod.Invoke(null, new object[] { key, prefix });
+                    return LocalizedWithPrefixDelegate(key, prefix);
                 }
 
-                if (LocalizedWithCaseMethod != null)
+                if (LocalizedWithCaseDelegate != null)
                 {
-                    return (string)LocalizedWithCaseMethod.Invoke(null, new object[] { key, stringCase });
+                    return LocalizedWithCaseDelegate(key, stringCase);
                 }
             }
             catch (Exception ex)
@@ -101,7 +123,7 @@ namespace SimpleHitMarker.Localization
             return key;
         }
 
-        public static string LocalizedEnum<TEnum>(TEnum value, string prefix = null, EStringCase stringCase = EStringCase.None) where TEnum : struct, Enum
+        public static string LocalizedEnum<TEnum>(TEnum value, string prefix = null, EStringCase stringCase = EStringCase.None) where TEnum : Enum
         {
             string key = $"{typeof(TEnum).Name}/{value}";
             return Localized(key, prefix, stringCase);
@@ -122,19 +144,19 @@ namespace SimpleHitMarker.Localization
 
             try
             {
-                if (!string.IsNullOrEmpty(locale) && TransliterateWithLocaleMethod != null)
+                if (!string.IsNullOrEmpty(locale) && TransliterateWithLocaleDelegate != null)
                 {
-                    return (string)TransliterateWithLocaleMethod.Invoke(null, new object[] { value, locale });
+                    return TransliterateWithLocaleDelegate(value, locale);
                 }
 
-                if (TransliterateSingleArgMethod != null)
+                if (TransliterateSingleArgDelegate != null)
                 {
-                    return (string)TransliterateSingleArgMethod.Invoke(null, new object[] { value });
+                    return TransliterateSingleArgDelegate(value);
                 }
 
-                if (TransliterateWithLocaleMethod != null)
+                if (TransliterateWithLocaleDelegate != null)
                 {
-                    return (string)TransliterateWithLocaleMethod.Invoke(null, new object[] { value, null });
+                    return TransliterateWithLocaleDelegate(value, null);
                 }
             }
             catch (Exception ex)

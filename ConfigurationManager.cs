@@ -65,6 +65,7 @@ namespace SimpleHitMarker
         public ConfigEntry<float> NameOutlineThickness { get; private set; }
 
         public ConfigEntry<KeyboardShortcut> DebugTriggerKey { get; private set; }
+        public ConfigEntry<bool> DebugMode { get; private set; }
 
         public ConfigEntry<bool> EnableHitSound { get; private set; }
         public ConfigEntry<bool> EnableKillSound { get; private set; }
@@ -606,6 +607,17 @@ namespace SimpleHitMarker
                     "按下该按键将立即生成一次随机击中反馈与击杀提示",
                     null,
                     new ConfigurationManagerAttributes { Order = 100, Category = "调试" }
+                )
+            );
+
+            DebugMode = _config.Bind<bool>(
+                "调试",
+                "启用调试日志",
+                false,
+                new ConfigDescription(
+                    "是否在控制台输出详细的击杀和调试信息（开启可能导致微小卡顿）",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 90, Category = "调试" }
                 )
             );
 

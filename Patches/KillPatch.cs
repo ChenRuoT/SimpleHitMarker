@@ -52,7 +52,10 @@ namespace SimpleHitmarker.KillPatch
         /// </summary>
         private static void OnPlayerKilled(Player deadPlayer, IPlayer killer, DamageInfoStruct damageInfo, EBodyPart bodyPart)
         {
-            LogKillEventRaw(deadPlayer, killer, damageInfo, bodyPart);
+            if (Plugin.Instance?.ConfigManager?.DebugMode?.Value == true)
+            {
+                LogKillEventRaw(deadPlayer, killer, damageInfo, bodyPart);
+            }
 
             try
             {
@@ -75,7 +78,10 @@ namespace SimpleHitmarker.KillPatch
                 bool isHeadshotKill = bodyPart == EBodyPart.Head;
                 Plugin.Instance.PlayKillSound(isHeadshotKill);
 
-                LogKillInfoDetails(killInfo, killer, damageInfo);
+                if (Plugin.Instance?.ConfigManager?.DebugMode?.Value == true)
+                {
+                    LogKillInfoDetails(killInfo, killer, damageInfo);
+                }
             }
             catch (Exception ex)
             {
