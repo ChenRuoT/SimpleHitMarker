@@ -145,6 +145,11 @@ namespace SimpleHitMarker
 
         private void DrawHitMarkerIcon()
         {
+            if (!_config.EnableHitMarker.Value)
+            {
+                return;
+            }
+
             float hitDurationValue = _config.HitDuration.Value;
             float t = (Time.time - _hitTime) / hitDurationValue;
             float alpha = 1f - t;

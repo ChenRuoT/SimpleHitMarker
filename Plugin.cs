@@ -14,7 +14,7 @@ using UnityEngine;
 
 namespace SimpleHitMarker
 {
-    [BepInPlugin("com.shiunaya.simplehitmarker", "SimpleHitMarker", "1.0.0")]
+    [BepInPlugin("com.shiunaya.simplehitmarker", "SimpleHitMarker", "1.0.1")]
     public class Plugin : BaseUnityPlugin
     {
         public static Plugin Instance { get; private set; }

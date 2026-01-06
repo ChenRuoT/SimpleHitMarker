@@ -9,7 +9,7 @@ namespace SimpleHitMarker
     public class ConfigurationManagerAttributes
     {
         public int? Order { get; set; } = null;
-        public bool? IsAdvanced { get; set; } = null;
+        public bool? IsAdvanced;
         public string Category { get; set; } = null;
         public Action<ConfigEntryBase> CustomDrawer { get; set; } = null;
         public bool? HideSettingName { get; set; } = null;

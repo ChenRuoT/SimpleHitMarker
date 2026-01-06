@@ -219,6 +219,8 @@ namespace SimpleHitMarker.KillFeed
         /// </summary>
         private void DrawFactionLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
+            if (!_config.ShowFactionIcon.Value && !_config.ShowFaction.Value) return;
+
             Color factionColor = _config.ColorFaction?.Value ?? Color.white;
             int fontSize = _config.FontSizeFaction?.Value ?? 16;
             float iconSize = _config.FactionIconSize?.Value ?? 24f;
@@ -249,7 +251,7 @@ namespace SimpleHitMarker.KillFeed
             // vertical offset from config (negative = up, positive = down)
             float factionIconVerticalOffset = _config.FactionIconVerticalOffset?.Value ?? -20f;
             float iconY = yPos + Mathf.Max(0f, (lineHeight - iconSize) * 0.5f) + factionIconVerticalOffset;
-            if (info.FactionIcon != null)
+            if (_config.ShowFactionIcon.Value && info.FactionIcon != null)
             {
                 Rect iconRect = new Rect(rowRight - iconSize, iconY, iconSize, iconSize);
                 Color originalColor = GUI.color;
@@ -260,6 +262,8 @@ namespace SimpleHitMarker.KillFeed
             }
 
             // 绘制等级和Bot类型，垂直方向居中对齐到阵营图标
+            if (!_config.ShowFaction.Value) return;
+
             string botType = BotTypeMapping.GetBotType(info.Role);
 
             bool showLevel = false;
@@ -334,6 +338,8 @@ namespace SimpleHitMarker.KillFeed
             float skullFadeDuration = _config.SkullFadeDuration?.Value ?? 0.3f;
             float skullSize = _config.SkullSize?.Value ?? 64f;
 
+            if (!_config.ShowSkull.Value) return;
+
             foreach (var kill in kills)
             {
                 float elapsed = currentTime - kill.StartTime;
@@ -371,6 +377,8 @@ namespace SimpleHitMarker.KillFeed
         /// </summary>
         private void DrawExperienceText(KillInfo info, float anchorX, float anchorY, float alpha, float lineHeight)
         {
+            if (!_config.ShowExperience.Value) return;
+
             Color expColor = _config.ColorExperience?.Value ?? new Color(1f, 1f, 0.8f, 1f);
             int expFontSize = _config.FontSizeExperience?.Value ?? 20;
             float expTextWidth = _config.ExperienceTextWidth?.Value ?? 180f;
@@ -392,6 +400,8 @@ namespace SimpleHitMarker.KillFeed
         /// </summary>
         private void DrawPlayerNameLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
+            if (!_config.ShowPlayerName.Value) return;
+
             Color nameColor = _config.ColorPlayerName?.Value ?? new Color(1f, 0.3f, 0.3f, 1f);
             int fontSize = _config.FontSizePlayerName?.Value ?? 18;
 
@@ -422,6 +432,8 @@ namespace SimpleHitMarker.KillFeed
         /// </summary>
         private void DrawKillDetailsLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
+            if (!_config.ShowKillDetails.Value) return;
+
             Color detailsColor = _config.ColorKillDetails?.Value ?? new Color(0.8f, 0.8f, 0.8f, 1f);
             int fontSize = _config.FontSizeKillDetails?.Value ?? 14;
 

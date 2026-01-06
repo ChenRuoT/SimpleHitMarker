@@ -64,6 +64,15 @@ namespace SimpleHitMarker
         public ConfigEntry<float> NameOutlineOpacity { get; private set; }
         public ConfigEntry<float> NameOutlineThickness { get; private set; }
 
+        // Toggles
+        public ConfigEntry<bool> EnableHitMarker { get; private set; }
+        public ConfigEntry<bool> ShowFactionIcon { get; private set; }
+        public ConfigEntry<bool> ShowFaction { get; private set; }
+        public ConfigEntry<bool> ShowExperience { get; private set; }
+        public ConfigEntry<bool> ShowPlayerName { get; private set; }
+        public ConfigEntry<bool> ShowKillDetails { get; private set; }
+        public ConfigEntry<bool> ShowSkull { get; private set; }
+
         public ConfigEntry<KeyboardShortcut> DebugTriggerKey { get; private set; }
         public ConfigEntry<bool> DebugMode { get; private set; }
 
@@ -82,9 +91,25 @@ namespace SimpleHitMarker
 
         private void InitializeConfigs()
         {
+            // ============ Switch Toggles (Top of Categories) ============
+
+            // 1. Hit Marker
+            EnableHitMarker = _config.Bind<bool>(
+                "1. 命中提示",
+                "启用命中标记",
+                true,
+                new ConfigDescription(
+                    "是否显示中心命中标记图标",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 0 }
+                )
+            );
+
+
+
             // ============ Hit Marker 配置 ============
             HitDuration = _config.Bind<float>(
-                "Hit Marker",
+                "1. 命中提示",
                 "显示时长",
                 0.8680753f,
                 new ConfigDescription(
@@ -95,7 +120,7 @@ namespace SimpleHitMarker
             );
 
             HitBaseSize = _config.Bind<float>(
-                "Hit Marker",
+                "1. 命中提示",
                 "基础大小",
                 71f,
                 new ConfigDescription(
@@ -106,7 +131,7 @@ namespace SimpleHitMarker
             );
 
             HitMarkerCenterOffset = _config.Bind<Vector2>(
-                "Hit Marker",
+                "1. 命中提示",
                 "中心偏移",
                 new Vector2(0f, 5f),
                 new ConfigDescription(
@@ -117,7 +142,7 @@ namespace SimpleHitMarker
             );
 
             HitMarkerAnimationScale = _config.Bind<float>(
-                "Hit Marker",
+                "1. 命中提示",
                 "动画缩放",
                 1f,
                 new ConfigDescription(
@@ -129,18 +154,18 @@ namespace SimpleHitMarker
 
             // ============ Hit Marker 伤害文字配置 ============
             ShowDamageText = _config.Bind<bool>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "显示伤害文字",
                 true,
                 new ConfigDescription(
                     "是否在击中标记旁显示伤害数值",
                     null,
-                    new ConfigurationManagerAttributes { Order = 60 }
+                    new ConfigurationManagerAttributes { Order = 10 }
                 )
             );
 
             DamageTextPadding = _config.Bind<float>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "伤害文字间距",
                 8f,
                 new ConfigDescription(
@@ -151,7 +176,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextMinSize = _config.Bind<int>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "伤害文字最小字号",
                 15,
                 new ConfigDescription(
@@ -162,7 +187,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextMaxSize = _config.Bind<int>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "伤害文字最大字号",
                 73,
                 new ConfigDescription(
@@ -173,7 +198,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextSize = _config.Bind<int>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "伤害文字字号",
                 21,
                 new ConfigDescription(
@@ -184,7 +209,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextColor = _config.Bind<Color>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "伤害文字颜色",
                 Color.white,
                 new ConfigDescription(
@@ -195,7 +220,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextOutlineColor = _config.Bind<Color>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "伤害文字描边颜色",
                 Color.white,
                 new ConfigDescription(
@@ -206,7 +231,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextHeadshotOutlineColor = _config.Bind<Color>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "爆头伤害描边颜色",
                 Color.red,
                 new ConfigDescription(
@@ -217,7 +242,7 @@ namespace SimpleHitMarker
             );
 
             DamageMultiTextPadding = _config.Bind<float>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "多段伤害间距",
                 12f,
                 new ConfigDescription(
@@ -228,7 +253,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextOutlineOpacity = _config.Bind<float>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "描边不透明度",
                 0.2535212f,
                 new ConfigDescription(
@@ -239,7 +264,7 @@ namespace SimpleHitMarker
             );
 
             DamageTextOutlineThickness = _config.Bind<float>(
-                "Hit Marker",
+                "2. 伤害显示",
                 "描边厚度",
                 1.4f,
                 new ConfigDescription(
@@ -250,65 +275,131 @@ namespace SimpleHitMarker
             );
 
             // ============ Kill Feed 位置配置 ============
+            // 3. Kill Feed
+            ShowFactionIcon = _config.Bind<bool>(
+                "3. 击杀信息",
+                "显示阵营图标",
+                true,
+                new ConfigDescription(
+                    "是否显示击杀信息中的阵营图标",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 0 }
+                )
+            );
+
+            ShowFaction = _config.Bind<bool>(
+                "3. 击杀信息",
+                "显示阵营文字",
+                true,
+                new ConfigDescription(
+                    "是否显示击杀信息中的阵营与等级文字",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 1 }
+                )
+            );
+
+            ShowExperience = _config.Bind<bool>(
+                "3. 击杀信息",
+                "显示经验值",
+                true,
+                new ConfigDescription(
+                    "是否显示击杀信息中的经验值",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 2 }
+                )
+            );
+
+            ShowPlayerName = _config.Bind<bool>(
+                "3. 击杀信息",
+                "显示玩家名字",
+                true,
+                new ConfigDescription(
+                    "是否显示击杀信息中的玩家名字",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 3 }
+                )
+            );
+
+            ShowKillDetails = _config.Bind<bool>(
+                "3. 击杀信息",
+                "显示击杀详情",
+                true,
+                new ConfigDescription(
+                    "是否显示击杀信息中的详细信息（武器、距离、部位）",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 4 }
+                )
+            );
+
+            ShowSkull = _config.Bind<bool>(
+                "3. 击杀信息",
+                "显示骷髅头",
+                true,
+                new ConfigDescription(
+                    "是否显示击杀信息中的骷髅头图标",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 5 }
+                )
+            );
             KillFeedHorizontalOffset = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "水平中心偏移",
                 107f,
                 new ConfigDescription(
                     "击杀提示相对屏幕中心向左的偏移量（像素）。正值向左移动，负值向右移动。",
                     new AcceptableValueRange<float>(-2000f, 2000f),
-                    new ConfigurationManagerAttributes { Order = 100, Category = "位置" }
+                    new ConfigurationManagerAttributes { Order = 100, Category = "位置", IsAdvanced = true }
                 )
             );
 
             KillFeedVerticalOffset = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "垂直中心偏移",
                 0f,
                 new ConfigDescription(
                     "击杀提示相对屏幕垂直中心的偏移量（像素）。正值向下移动，负值向上移动。",
                     new AcceptableValueRange<float>(-2000f, 2000f),
-                    new ConfigurationManagerAttributes { Order = 90, Category = "位置" }
+                    new ConfigurationManagerAttributes { Order = 90, Category = "位置", IsAdvanced = true }
                 )
             );
 
 
             KillFeedLineSpacing = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "行间距",
                 0f,
                 new ConfigDescription(
                     "每行之间的间距（像素）",
                     new AcceptableValueRange<float>(0f, 50f),
-                    new ConfigurationManagerAttributes { Order = 70, Category = "位置" }
+                    new ConfigurationManagerAttributes { Order = 70, Category = "位置", IsAdvanced = true }
                 )
             );
 
             KillFeedBlockWidth = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "内容宽度",
                 420f,
                 new ConfigDescription(
                     "每行文字内容的最大宽度（像素），用于右对齐布局。",
                     new AcceptableValueRange<float>(100f, 1000f),
-                    new ConfigurationManagerAttributes { Order = 65, Category = "位置" }
+                    new ConfigurationManagerAttributes { Order = 65, Category = "位置", IsAdvanced = true }
                 )
             );
 
             KillFeedExperienceHorizontalOffset = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "经验值水平偏移",
                 35f,
                 new ConfigDescription(
                     "经验值数值相对锚点向右的偏移量（像素)。正值表示向右偏移。",
                     new AcceptableValueRange<float>(-500f, 500f),
-                    new ConfigurationManagerAttributes { Order = 60, Category = "位置" }
+                    new ConfigurationManagerAttributes { Order = 60, Category = "位置", IsAdvanced = true }
                 )
             );
 
             // ============ Kill Feed 时间配置 ============
             KillFeedDuration = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "显示时长",
                 6f,
                 new ConfigDescription(
@@ -319,7 +410,7 @@ namespace SimpleHitMarker
             );
 
             SkullDisplayDuration = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "骷髅头显示时长",
                 2f,
                 new ConfigDescription(
@@ -330,7 +421,7 @@ namespace SimpleHitMarker
             );
 
             SkullFadeDuration = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "骷髅头淡出时长",
                 0.3f,
                 new ConfigDescription(
@@ -341,19 +432,19 @@ namespace SimpleHitMarker
             );
 
             StreakWindow = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "连杀时间窗口",
                 10f,
                 new ConfigDescription(
                     "在此时间内击杀算作连杀（秒）",
                     new AcceptableValueRange<float>(1f, 60f),
-                    new ConfigurationManagerAttributes { Order = 70, Category = "时间" }
+                    new ConfigurationManagerAttributes { Order = 70, Category = "时间", IsAdvanced = true }
                 )
             );
 
             // ============ Kill Feed 骷髅头配置 ============
             SkullSize = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "骷髅头大小",
                 40f,
                 new ConfigDescription(
@@ -364,18 +455,18 @@ namespace SimpleHitMarker
             );
 
             SkullSpacing = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "骷髅头间距",
                 20f,
                 new ConfigDescription(
                     "连杀时骷髅头之间的间距（像素）",
                     new AcceptableValueRange<float>(20f, 200f),
-                    new ConfigurationManagerAttributes { Order = 90, Category = "骷髅头" }
+                    new ConfigurationManagerAttributes { Order = 90, Category = "骷髅头", IsAdvanced = true }
                 )
             );
 
             SkullAnimationSpeed = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "骷髅头动画速度",
                 5f,
                 new ConfigDescription(
@@ -386,19 +477,19 @@ namespace SimpleHitMarker
             );
 
             SkullPushAnimationSpeed = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "骷髅头推挤动画速度",
                 7f,
                 new ConfigDescription(
                     "连杀产生时旧骷髅头向左平移的速度。",
                     new AcceptableValueRange<float>(1f, 30f),
-                    new ConfigurationManagerAttributes { Order = 75, Category = "骷髅头" }
+                    new ConfigurationManagerAttributes { Order = 75, Category = "骷髅头", IsAdvanced = true }
                 )
             );
 
             // ============ Kill Feed 字体配置 ============
             FontSizeFaction = _config.Bind<int>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "阵营文字字号",
                 20,
                 new ConfigDescription(
@@ -409,7 +500,7 @@ namespace SimpleHitMarker
             );
 
             FontSizeExperience = _config.Bind<int>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "经验值字号",
                 20,
                 new ConfigDescription(
@@ -420,7 +511,7 @@ namespace SimpleHitMarker
             );
 
             FontSizePlayerName = _config.Bind<int>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "玩家名字号",
                 18,
                 new ConfigDescription(
@@ -431,7 +522,7 @@ namespace SimpleHitMarker
             );
 
             FontSizeKillDetails = _config.Bind<int>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "击杀详情字号",
                 20,
                 new ConfigDescription(
@@ -443,7 +534,7 @@ namespace SimpleHitMarker
 
             // ============ Kill Feed 颜色配置 ============
             ColorFaction = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "阵营文字颜色",
                 Color.white,
                 new ConfigDescription(
@@ -454,7 +545,7 @@ namespace SimpleHitMarker
             );
 
             ColorExperience = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "经验值颜色",
                 new Color32(0xFF, 0xCC, 0xFF, 0xFF),
                 new ConfigDescription(
@@ -465,7 +556,7 @@ namespace SimpleHitMarker
             );
 
             ColorPlayerName = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "玩家名称颜色",
                 new Color32(0xFF, 0x00, 0x0F, 0xFF),
                 new ConfigDescription(
@@ -476,7 +567,7 @@ namespace SimpleHitMarker
             );
 
             ColorKillDetails = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "击杀详情颜色",
                 new Color32(0xCC, 0xCC, 0xCC, 0xFF),
                 new ConfigDescription(
@@ -487,56 +578,56 @@ namespace SimpleHitMarker
             );
             // ============ Per-bot-type color defaults ============
             ColorUSEC = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_USEC",
                 new Color(0.0f, 0.2f, 0.6f, 1f), // deep blue
                 new ConfigDescription("USEC 文字颜色", null, new ConfigurationManagerAttributes { Order = 69, Category = "颜色" })
             );
 
             ColorBEAR = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_BEAR",
                 new Color(1f, 0.55f, 0f, 1f), // orange
                 new ConfigDescription("BEAR 文字颜色", null, new ConfigurationManagerAttributes { Order = 68, Category = "颜色" })
             );
 
             ColorSCAV = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_SCAV",
                 new Color(1f, 0.9f, 0f, 1f), // yellow
                 new ConfigDescription("SCAV 文字颜色", null, new ConfigurationManagerAttributes { Order = 67, Category = "颜色" })
             );
 
             ColorBOSS = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_BOSS",
                 new Color(1f, 0f, 0f, 1f), // red
                 new ConfigDescription("BOSS 文字颜色", null, new ConfigurationManagerAttributes { Order = 66, Category = "颜色" })
             );
 
             ColorFollower = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_Follower",
                 new Color(0.9f, 0.2f, 0.2f, 1f), // slightly lighter red
                 new ConfigDescription("Follower 文字颜色", null, new ConfigurationManagerAttributes { Order = 65, Category = "颜色" })
             );
 
             ColorRAIDER = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_RAIDER",
                 new Color(1f, 0.4f, 0.7f, 1f), // pink
                 new ConfigDescription("RAIDER 文字颜色", null, new ConfigurationManagerAttributes { Order = 64, Category = "颜色" })
             );
 
             ColorRouges = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_Rouges",
                 new Color(0.2f, 0.2f, 0.2f, 1f), // dark gray
                 new ConfigDescription("Rouges 文字颜色", null, new ConfigurationManagerAttributes { Order = 63, Category = "颜色" })
             );
 
             ColorSectant = _config.Bind<Color>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "颜色_Sectant",
                 new Color(0f, 0.4f, 0f, 1f), // dark green
                 new ConfigDescription("Sectant 文字颜色", null, new ConfigurationManagerAttributes { Order = 62, Category = "颜色" })
@@ -544,7 +635,7 @@ namespace SimpleHitMarker
 
             // ============ Kill Feed 其他配置 ============
             FactionIconSize = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "阵营图标大小",
                 86f,
                 new ConfigDescription(
@@ -555,75 +646,55 @@ namespace SimpleHitMarker
             );
 
             FactionIconVerticalOffset = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "阵营图标垂直偏移",
                 -30f,
                 new ConfigDescription(
                     "阵营图标相对于原始布局的垂直偏移（像素），负值向上，正值向下。",
                     new AcceptableValueRange<float>(-200f, 200f),
-                    new ConfigurationManagerAttributes { Order = 59, IsAdvanced = true }
+                    new ConfigurationManagerAttributes { Order = 59, IsAdvanced = true, Browsable = false }
                 )
             );
 
             ExperienceTextWidth = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "经验值文字宽度",
                 180f,
                 new ConfigDescription(
                     "经验值文字区域的宽度（像素）",
                     new AcceptableValueRange<float>(50f, 500f),
-                    new ConfigurationManagerAttributes { Order = 50, IsAdvanced = true }
+                    new ConfigurationManagerAttributes { Order = 50, IsAdvanced = true, Browsable = false }
                 )
             );
 
             // ============ 玩家名字描边配置 ============
             NameOutlineOpacity = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "玩家名字描边不透明度",
                 0.1549296f,
                 new ConfigDescription(
                     "玩家名字描边颜色的不透明度（0-1）",
                     new AcceptableValueRange<float>(0f, 1f),
-                    new ConfigurationManagerAttributes { Order = 49, Category = "颜色" }
+                    new ConfigurationManagerAttributes { Order = 49, Category = "颜色", IsAdvanced = true }
                 )
             );
 
             NameOutlineThickness = _config.Bind<float>(
-                "Kill Feed",
+                "3. 击杀信息",
                 "玩家名字描边厚度",
                 1.1f,
                 new ConfigDescription(
                     "玩家名字描边的像素厚度",
                     new AcceptableValueRange<float>(0.5f, 10f),
-                    new ConfigurationManagerAttributes { Order = 48, Category = "颜色" }
+                    new ConfigurationManagerAttributes { Order = 48, Category = "颜色", IsAdvanced = true }
                 )
             );
 
-            DebugTriggerKey = _config.Bind(
-                "调试",
-                "调试触发按键",
-                new KeyboardShortcut(KeyCode.P),
-                new ConfigDescription(
-                    "按下该按键将立即生成一次随机击中反馈与击杀提示",
-                    null,
-                    new ConfigurationManagerAttributes { Order = 100, Category = "调试" }
-                )
-            );
 
-            DebugMode = _config.Bind<bool>(
-                "调试",
-                "启用调试日志",
-                false,
-                new ConfigDescription(
-                    "是否在控制台输出详细的击杀和调试信息（开启可能导致微小卡顿）",
-                    null,
-                    new ConfigurationManagerAttributes { Order = 90, Category = "调试" }
-                )
-            );
 
             // ============ 音频配置 ============
             EnableHitSound = _config.Bind<bool>(
-                "音频",
+                "4. 音频",
                 "启用命中音效",
                 true,
                 new ConfigDescription(
@@ -634,7 +705,7 @@ namespace SimpleHitMarker
             );
 
             EnableKillSound = _config.Bind<bool>(
-                "音频",
+                "4. 音频",
                 "启用击杀音效",
                 true,
                 new ConfigDescription(
@@ -645,7 +716,7 @@ namespace SimpleHitMarker
             );
 
             HitSoundVolume = _config.Bind<float>(
-                "音频",
+                "4. 音频",
                 "命中音效音量",
                 0.5f,
                 new ConfigDescription(
@@ -656,7 +727,7 @@ namespace SimpleHitMarker
             );
 
             KillSoundVolume = _config.Bind<float>(
-                "音频",
+                "4. 音频",
                 "击杀音效音量",
                 0.7f,
                 new ConfigDescription(
@@ -665,6 +736,28 @@ namespace SimpleHitMarker
                     new ConfigurationManagerAttributes { Order = 70 }
                 )
             );
+            DebugTriggerKey = _config.Bind(
+                "5. 调试",
+                "调试触发按键",
+                new KeyboardShortcut(KeyCode.P),
+                new ConfigDescription(
+                    "按下该按键将立即生成一次随机击中反馈与击杀提示",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 100, Category = "调试" }
+                )
+            );
+
+            DebugMode = _config.Bind<bool>(
+                "5. 调试",
+                "启用调试日志",
+                false,
+                new ConfigDescription(
+                    "是否在控制台输出详细的击杀和调试信息（开启可能导致微小卡顿）",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 90, Category = "调试", IsAdvanced = true }
+                )
+            );
         }
+
     }
 }
