@@ -42,11 +42,11 @@ namespace SimpleHitMarker.Patches
                 if (Plugin.Instance != null && Plugin.Instance.Audio != null)
                 {
                     Plugin.Instance.Audio.CheckAndRestoreSource();
-
+                    /*
                     // 触发一次调试UI显示，作为"欢迎仪式"并确认Audio/UI已加载
                     Plugin.Instance.GenerateDebugHit();
                     Plugin.Instance.GenerateDebugKill(false);
-                    Plugin.Log.LogInfo("[SimpleHitMarker] Welcome shot fired!");
+                    Plugin.Log.LogInfo("[SimpleHitMarker] Welcome shot fired!");*/
                 }
             }
         }
