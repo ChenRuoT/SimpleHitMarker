@@ -60,6 +60,9 @@ namespace SimpleHitMarker
             // Crude but effective: Listen for specific log signals to refresh audio
             LogInterceptorPatch.Enable();
 
+            // Warmup localization on background to avoid first-use overhead
+            SimpleHitMarker.Localization.LocalizedHelper.WarmupLocalization();
+
             Log.LogInfo("SimpleHitMarker Plugin is loaded with polling and log-interceptor!");
         }
 
