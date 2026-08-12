@@ -153,7 +153,10 @@ namespace SimpleHitMarker
                             // 等待请求完成（有超时保护）
                             PropertyInfo isDoneProp = resultType.GetProperty("isDone");
                             int waited = 0;
-                            const int timeoutMs = 10000; //10s timeout
+                            // This loop blocks the calling thread, so keep the worst case short.
+                            // A local file:// read completes almost immediately; anything longer
+                            // means it is not going to succeed and a 10s freeze is unacceptable.
+                            const int timeoutMs = 2000;
                             while (true)
                             {
                                 bool isDone = false;

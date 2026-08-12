@@ -67,8 +67,14 @@ namespace SimpleHitMarker.Localization
         {
             // Kick off delegate discovery asynchronously so the first call to this
             // type does not block the main thread with reflection/delegate creation.
-            Task.Run(() => InitializeDelegates());
+            InitTask = Task.Run(() => InitializeDelegates());
         }
+
+        // Handle on the background discovery started in the static ctor. It is used ONLY to
+        // test completion (IsCompleted) — never to block on. Discovery scans every member of
+        // every type in Assembly-CSharp, so waiting on it from the main thread stalls Unity
+        // during startup; callers fall back to raw keys until it finishes instead.
+        private static readonly Task InitTask;
 
         private static void InitializeDelegates()
         {
@@ -165,13 +171,17 @@ namespace SimpleHitMarker.Localization
                 var sw = Stopwatch.StartNew();
                 string result = null;
 
-                if (!string.IsNullOrEmpty(prefix) && LocalizedWithPrefixDelegate != null)
+                // Only cache misses reach here, so this measures real calls into EFT.
+                using (PerfProbe.Measure("Loc.Localized"))
                 {
-                    result = LocalizedWithPrefixDelegate(key, prefix);
-                }
-                else if (LocalizedWithCaseDelegate != null)
-                {
-                    result = LocalizedWithCaseDelegate(key, stringCase);
+                    if (!string.IsNullOrEmpty(prefix) && LocalizedWithPrefixDelegate != null)
+                    {
+                        result = LocalizedWithPrefixDelegate(key, prefix);
+                    }
+                    else if (LocalizedWithCaseDelegate != null)
+                    {
+                        result = LocalizedWithCaseDelegate(key, stringCase);
+                    }
                 }
 
                 sw.Stop();
@@ -185,10 +195,18 @@ namespace SimpleHitMarker.Localization
                     LocalizedCache[key] = result;
                     return result;
                 }
+
+                // Cache the miss as well. Callers such as KillFeedUI.GetRoleDisplayName run
+                // inside OnGUI every frame, so an uncached failing key means re-entering EFT's
+                // localization on every frame for as long as the kill feed is on screen.
+                LocalizedCache[key] = key;
             }
             catch (Exception ex)
             {
                 Plugin.Log?.LogDebug($"[SimpleHitMarker] LocalizedHelper.Localized failed for '{key}': {ex}");
+                // The cache is lazily created inside the try above, so it may not exist yet.
+                var cache = LocalizedCache;
+                if (cache != null) cache[key] = key;
             }
 
             return key;
@@ -199,19 +217,53 @@ namespace SimpleHitMarker.Localization
             string key = $"{typeof(TEnum).Name}/{value}";
             return Localized(key, prefix, stringCase);
         }
+
+        /// <summary>
+        /// True once background delegate discovery has finished (successfully or not).
+        /// </summary>
+        public static bool IsReady => InitTask == null || InitTask.IsCompleted;
+
+        /// <summary>
+        /// Perform the first real lookup from the main thread, at a moment of our choosing.
+        /// The first call into EFT's localization is expensive (delegate JIT + EFT's own table
+        /// initialisation); paying it lazily meant the cost landed on the player's first kill
+        /// and stalled the frame. Must be called from the main thread — see the crash note in
+        /// WarmupLocalization about calling EFT APIs off-thread.
+        /// </summary>
+        public static void PrimeOnMainThread()
+        {
+            if (!LocalizationAvailable) return;
+
+            try
+            {
+                var sw = Stopwatch.StartNew();
+                // One lookup is enough: the expensive part is one-time and global, not per-key.
+                _ = Localized("WildSpawnType/assault");
+                sw.Stop();
+                Plugin.Log?.LogInfo($"[SimpleHitMarker] Localization primed on main thread in {sw.ElapsedMilliseconds} ms");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.LogWarning($"[SimpleHitMarker] Localization priming failed (non-critical): {ex}");
+            }
+        }
         /// <summary>
         /// Warm up localization system by pre-initializing delegates.
         /// Call this once on startup to avoid first-call overhead during gameplay.
         /// </summary>
         public static void WarmupLocalization()
         {
-            Task.Run(() =>
+            // Report the outcome via a continuation rather than blocking on discovery.
+            // NOTE: do NOT perform a test lookup here. This continuation runs on a thread-pool
+            // thread, and once discovery has succeeded a lookup would call into EFT's
+            // localization tables off the main thread during startup — which aborts the process
+            // natively rather than throwing. Building the delegates is the whole warmup; the
+            // first real lookup happens on the main thread where it is safe.
+            InitTask?.ContinueWith(discovery =>
             {
                 try
                 {
-                    // Force delegate initialization by accessing a test key
-                    _ = Localized("test_warmup");
-                    Plugin.Log?.LogInfo("[SimpleHitMarker] LocalizedHelper warmup completed");
+                    Plugin.Log?.LogInfo($"[SimpleHitMarker] LocalizedHelper warmup completed (localization={LocalizationAvailable}, transliteration={TransliterationAvailable})");
                 }
                 catch (Exception ex)
                 {
@@ -247,7 +299,8 @@ namespace SimpleHitMarker.Localization
                 // immediately return it to avoid blocking the main thread.
                 var swTotal = Stopwatch.StartNew();
                 var swQuick = Stopwatch.StartNew();
-                string quick = QuickTransliterateFallback(value);
+                string quick;
+                using (PerfProbe.Measure("Loc.Transliterate")) { quick = QuickTransliterateFallback(value); }
                 swQuick.Stop();
 
                 // store the quick result
@@ -338,6 +391,13 @@ namespace SimpleHitMarker.Localization
                 return;
             }
 
+            // Don't latch the warning while discovery is still running — that would report
+            // a permanent failure for what is only a startup race.
+            if (InitTask != null && !InitTask.IsCompleted)
+            {
+                return;
+            }
+
             loggedLocalizationError = true;
             Plugin.Log?.LogWarning("[SimpleHitMarker] EFT localization methods could not be resolved; falling back to raw keys.");
         }
@@ -345,6 +405,11 @@ namespace SimpleHitMarker.Localization
         private static void LogTransliterationMissingOnce()
         {
             if (loggedTransliterationError)
+            {
+                return;
+            }
+
+            if (InitTask != null && !InitTask.IsCompleted)
             {
                 return;
             }

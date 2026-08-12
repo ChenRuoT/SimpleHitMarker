@@ -62,9 +62,13 @@ namespace SimpleHitMarker
 
             try
             {
+                // NEVER reload synchronously here. Loading goes through UnityWebRequest and
+                // blocks the main thread (see AudioLoader), which froze the game on the first
+                // hit of a raid. Flag it instead; the 2s poll in Plugin.Update reloads off the
+                // combat path, and this hit simply plays no sound.
                 if (!IsAudioClipValid(_hitSoundClip) || !IsAudioClipValid(_headshotHitSoundClip))
                 {
-                    ReloadAudioClips();
+                    _reloadRequested = true;
                 }
 
                 AudioClip clipToPlay = null;
@@ -106,9 +110,10 @@ namespace SimpleHitMarker
 
             try
             {
+                // Deferred for the same reason as PlayHitSound — no blocking loads in combat.
                 if (!IsAudioClipValid(_killSoundClip) || !IsAudioClipValid(_headshotKillSoundClip))
                 {
-                    ReloadAudioClips();
+                    _reloadRequested = true;
                 }
 
                 AudioClip clipToPlay = null;
@@ -199,18 +204,25 @@ namespace SimpleHitMarker
 
             // 2. Proactively check if clips are still in memory
             // If any critical clip is invalid, reload all of them
-            if (!IsAudioClipValid(_hitSoundClip) ||
+            if (_reloadRequested ||
+                !IsAudioClipValid(_hitSoundClip) ||
                 !IsAudioClipValid(_headshotHitSoundClip) ||
                 !IsAudioClipValid(_killSoundClip) ||
                 !IsAudioClipValid(_headshotKillSoundClip))
             {
+                _reloadRequested = false;
                 _log?.LogInfo("[SimpleHitMarker] Audio clips found invalid in background check, reloading proactively...");
                 ReloadAudioClips();
             }
         }
 
+        // Set when a combat-path play found an invalid clip. Consumed by CheckAndRestoreSource
+        // so the (blocking) reload happens on the poll instead of inside a hit/kill frame.
+        private bool _reloadRequested;
+
         private void ReloadAudioClips()
         {
+            using var _perf = PerfProbe.Measure("Audio.Reload");
             LoadHitSounds();
         }
 

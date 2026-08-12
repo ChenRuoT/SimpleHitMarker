@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using BepInEx.Logging;
 using EFT;
 using HarmonyLib;
@@ -21,6 +21,7 @@ namespace SimpleHitMarker
         public static new ManualLogSource Log { get; private set; }
 
         public ConfigurationManager ConfigManager { get; private set; }
+        public PresetManager PresetMgr { get; private set; }
         public AudioManager Audio { get; private set; }
         public DamageIndicatorUI DamageUI { get; private set; }
         public KillFeedUI KillFeedUI { get; private set; }
@@ -40,9 +41,10 @@ namespace SimpleHitMarker
 
             // Initialize Managers
             ConfigManager = new ConfigurationManager(Config);
+            PresetMgr = PresetManager.Instance;
             DamageUI = new DamageIndicatorUI(ConfigManager, Log);
             Audio = new AudioManager(ConfigManager, Log);
-            KillFeedUI = new KillFeedUI(ConfigManager);
+            KillFeedUI = new KillFeedUI(ConfigManager, PresetMgr);
 
             // Load Resources for KillFeed
             LoadKillFeedResources();
@@ -63,7 +65,21 @@ namespace SimpleHitMarker
             // Warmup localization on background to avoid first-use overhead
             SimpleHitMarker.Localization.LocalizedHelper.WarmupLocalization();
 
-            Log.LogInfo("SimpleHitMarker Plugin is loaded with polling and log-interceptor!");
+            // Load presets on the main thread — they create Texture2D/AudioClip objects.
+            // Not fire-and-forget: that swallowed any failure into an unobserved task.
+            try
+            {
+                PresetMgr.LoadAllPresets();
+            }
+            catch (Exception ex)
+            {
+                Log.LogError($"[SimpleHitMarker] Preset loading failed: {ex}");
+            }
+
+            // Apply preset style from config (async continuation after presets are loaded)
+            ApplyPresetStyleFromConfig();
+
+            Log.LogInfo("SimpleHitMarker Plugin is loaded with polling, log-interceptor, and preset system!");
         }
 
         private void LoadKillFeedResources()
@@ -113,10 +129,25 @@ namespace SimpleHitMarker
         private float _lastAudioCheckTime = 0f;
         private const float AudioCheckInterval = 2f; // 每2秒主动检查一次
 
+        private bool _localizationPrimed;
+
         private void Update()
         {
+            // Report the frame that just elapsed before doing any work this frame.
+            PerfProbe.Enabled = ConfigManager?.PerfLogging?.Value ?? false;
+            PerfProbe.SpikeThresholdMs = ConfigManager?.PerfSpikeThresholdMs?.Value ?? 20f;
+            PerfProbe.FrameTick(Time.unscaledDeltaTime * 1000f);
+
             HandleDebugInput();
             KillFeedUI?.Update();
+
+            // Pay the first-localization-lookup cost here (main thread, no combat happening)
+            // rather than on the player's first kill, which used to stall the frame.
+            if (!_localizationPrimed && SimpleHitMarker.Localization.LocalizedHelper.IsReady)
+            {
+                _localizationPrimed = true;
+                SimpleHitMarker.Localization.LocalizedHelper.PrimeOnMainThread();
+            }
 
             // 恢复轮询：确保音频系统始终就绪
             if (Time.time - _lastAudioCheckTime > AudioCheckInterval)
@@ -131,20 +162,41 @@ namespace SimpleHitMarker
 
         private void OnGUI()
         {
-            DamageUI?.OnGUI();
-            KillFeedUI?.OnGUI();
+            // Count the event mix so a stall report shows whether OnGUI itself is being pumped
+            // abnormally often, and how many of those events actually draw.
+            PerfProbe.Count(Event.current.type == EventType.Repaint ? "Evt.Repaint" : "Evt.Other");
+
+            using (PerfProbe.Measure("GUI.Damage"))
+            {
+                DamageUI?.OnGUI();
+            }
+
+            using (PerfProbe.Measure("GUI.KillFeed"))
+            {
+                KillFeedUI?.OnGUI();
+            }
         }
 
         // Exposed for Patches
         public void RegisterDamageEvent(float damage, Vector3 position, bool isHeadshot)
         {
-            DamageUI?.RegisterHit(damage, isHeadshot);
-            Audio?.PlayHitSound(isHeadshot);
+            using (PerfProbe.Measure("Hit.RegisterUI"))
+            {
+                DamageUI?.RegisterHit(damage, isHeadshot);
+            }
+
+            using (PerfProbe.Measure("Hit.Sound"))
+            {
+                Audio?.PlayHitSound(isHeadshot);
+            }
         }
 
         public void PlayKillSound(bool isHeadshot)
         {
-            Audio?.PlayKillSound(isHeadshot);
+            using (PerfProbe.Measure("Kill.Sound"))
+            {
+                Audio?.PlayKillSound(isHeadshot);
+            }
         }
 
         private void LoadPmcRankIcons()
@@ -240,6 +292,23 @@ namespace SimpleHitMarker
             }
         }
 
+        /// <summary>
+        /// Apply the preset style from BepInEx config to PresetManager.
+        /// Called after presets are loaded.
+        /// </summary>
+        private void ApplyPresetStyleFromConfig()
+        {
+            // Presets are loaded synchronously before this runs, so there is nothing to wait for.
+            string styleKey = ConfigManager?.PresetStyle?.Value?.Trim();
+            if (!string.IsNullOrEmpty(styleKey))
+            {
+                // Normalize through StyleCatalog to support fuzzy matching
+                var style = KillFeed.StyleCatalog.GetStyle(styleKey);
+                PresetMgr.ActivePresetKey = style.StyleId;
+                Log.LogInfo($"[SimpleHitMarker] Preset style active: {style.DisplayName} ({style.StyleId})");
+            }
+        }
+
         private static readonly System.Random DebugRandom = new System.Random();
         private static readonly string[] DebugNames = { "Tigris", "Northwind", "KappaFox", "Windrunner", "NightOwl", "Skyline" };
         private static readonly string[] DebugKillMethods = { "M4A1", "AK-105", "MP7A2", "SR-25", "SV-98", "UMP-45", "MK17" };
@@ -268,7 +337,7 @@ namespace SimpleHitMarker
 
             string faction = isPmc ? (role == WildSpawnType.pmcUSEC ? "USEC" : "BEAR") : "Scav";
 
-            var killInfo = new KillInfo
+            var killInfo = new KillEntry
             {
                 PlayerName = isDebug ? PickRandom(DebugNames) + (isPmc ? "" : " (Scav)") : "Nikita",
                 PlayerLevel = level,

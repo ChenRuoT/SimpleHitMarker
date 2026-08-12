@@ -39,6 +39,10 @@ namespace SimpleHitMarker.Patches
                 // 为了防止在同一个加载阶段多次触发，可以加个简单的逻辑（或者不加，因为 CheckAndRestoreSource 本身很轻）
                 Plugin.Log.LogInfo("[SimpleHitMarker] Signal detected! Proactively refreshing audio system...");
 
+                // 进图会重建场景，字体图集可能被回收 —— 重新预热，避免成本落到第一次命中。
+                // 这里只置标志位，真正的预热在 OnGUI（主线程）执行。
+                Plugin.Instance?.DamageUI?.InvalidateFontPrime();
+
                 if (Plugin.Instance != null && Plugin.Instance.Audio != null)
                 {
                     Plugin.Instance.Audio.CheckAndRestoreSource();

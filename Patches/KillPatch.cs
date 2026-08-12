@@ -1,4 +1,5 @@
 using EFT;
+using EFT.Ballistics;
 using Comfort.Common;
 using System;
 using UnityEngine;
@@ -48,9 +49,9 @@ namespace SimpleHitmarker.KillPatch
 
         /// <summary>
         /// 玩家死亡事件处理
-        /// 事件签名：Action<Player, IPlayer, DamageInfoStruct, EBodyPart>
+        /// 事件签名：Action<Player, IPlayer, DamageInfo, EBodyPart>
         /// </summary>
-        private static void OnPlayerKilled(Player deadPlayer, IPlayer killer, DamageInfoStruct damageInfo, EBodyPart bodyPart)
+        private static void OnPlayerKilled(Player deadPlayer, IPlayer killer, DamageInfo damageInfo, EBodyPart bodyPart)
         {
             if (Plugin.Instance?.ConfigManager?.DebugMode?.Value == true)
             {
@@ -92,9 +93,10 @@ namespace SimpleHitmarker.KillPatch
         /// <summary>
         /// 创建击杀信息
         /// </summary>
-        private static KillInfo CreateKillInfo(Player victim, IPlayer killer, DamageInfoStruct damageInfo, EBodyPart bodyPart)
+        private static KillEntry CreateKillInfo(Player victim, IPlayer killer, DamageInfo damageInfo, EBodyPart bodyPart)
         {
-            var killInfo = new KillInfo
+            using var _perf = PerfProbe.Measure("Kill.CreateInfo");
+            var killInfo = new KillEntry
             {
                 Victim = victim,
                 Killer = killer,
@@ -184,7 +186,7 @@ namespace SimpleHitmarker.KillPatch
         /// 计算经验值
         /// 注意：这里使用估算值，实际经验值应该从游戏统计系统获取
         /// </summary>
-        private static int CalculateExperience(KillInfo killInfo)
+        private static int CalculateExperience(KillEntry killInfo)
         {
             int baseExp = 100;
 
@@ -202,7 +204,7 @@ namespace SimpleHitmarker.KillPatch
             return baseExp;
         }
 
-        private static string GetWeaponName(DamageInfoStruct damageInfo)
+        private static string GetWeaponName(DamageInfo damageInfo)
         {
             if (damageInfo.Weapon != null)
             {
@@ -226,7 +228,7 @@ namespace SimpleHitmarker.KillPatch
             return damageInfo.DamageType.ToString();
         }
 
-        private static void LogKillEventRaw(Player deadPlayer, IPlayer killer, DamageInfoStruct damageInfo, EBodyPart bodyPart)
+        private static void LogKillEventRaw(Player deadPlayer, IPlayer killer, DamageInfo damageInfo, EBodyPart bodyPart)
         {
             if (Plugin.Log == null)
             {
@@ -260,7 +262,7 @@ namespace SimpleHitmarker.KillPatch
             }
         }
 
-        private static void LogKillInfoDetails(KillInfo killInfo, IPlayer killer, DamageInfoStruct damageInfo)
+        private static void LogKillInfoDetails(KillEntry killInfo, IPlayer killer, DamageInfo damageInfo)
         {
             if (Plugin.Log == null || killInfo == null)
             {

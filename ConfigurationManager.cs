@@ -72,9 +72,12 @@ namespace SimpleHitMarker
         public ConfigEntry<bool> ShowPlayerName { get; private set; }
         public ConfigEntry<bool> ShowKillDetails { get; private set; }
         public ConfigEntry<bool> ShowSkull { get; private set; }
+        public ConfigEntry<string> PresetStyle { get; private set; }
 
         public ConfigEntry<KeyboardShortcut> DebugTriggerKey { get; private set; }
         public ConfigEntry<bool> DebugMode { get; private set; }
+        public ConfigEntry<bool> PerfLogging { get; private set; }
+        public ConfigEntry<float> PerfSpikeThresholdMs { get; private set; }
 
         public ConfigEntry<bool> EnableHitSound { get; private set; }
         public ConfigEntry<bool> EnableKillSound { get; private set; }
@@ -339,6 +342,17 @@ namespace SimpleHitMarker
                     "是否显示击杀信息中的骷髅头图标",
                     null,
                     new ConfigurationManagerAttributes { Order = 5 }
+                )
+            );
+
+            PresetStyle = _config.Bind<string>(
+                "3. 击杀信息",
+                "预设样式",
+                "",
+                new ConfigDescription(
+                    "选择击杀信息流的预设视觉样式。留空使用默认配置。可选: tactical, operator, bloodbath, headhunter, slick, nightops, inferno, plague",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 6 }
                 )
             );
             KillFeedHorizontalOffset = _config.Bind<float>(
@@ -755,6 +769,28 @@ namespace SimpleHitMarker
                     "是否在控制台输出详细的击杀和调试信息（开启可能导致微小卡顿）",
                     null,
                     new ConfigurationManagerAttributes { Order = 90, Category = "调试", IsAdvanced = true }
+                )
+            );
+
+            PerfLogging = _config.Bind<bool>(
+                "5. 调试",
+                "启用性能分析",
+                false,
+                new ConfigDescription(
+                    "记录卡顿帧内各功能的耗时明细，用于定位延迟来源（仅在排查问题时开启）",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 80, Category = "调试", IsAdvanced = true }
+                )
+            );
+
+            PerfSpikeThresholdMs = _config.Bind<float>(
+                "5. 调试",
+                "卡顿阈值(毫秒)",
+                20f,
+                new ConfigDescription(
+                    "单帧耗时超过该值时输出耗时明细。数值越小记录越详细",
+                    new AcceptableValueRange<float>(1f, 500f),
+                    new ConfigurationManagerAttributes { Order = 70, Category = "调试", IsAdvanced = true }
                 )
             );
         }

@@ -11,6 +11,7 @@ namespace SimpleHitMarker.KillFeed
     public class KillFeedUI
     {
         private readonly ConfigurationManager _config;
+        private readonly PresetManager _presetManager;
 
         // 当前显示的击杀信息列表
         private List<ActiveKillDisplay> activeKills = new List<ActiveKillDisplay>();
@@ -19,9 +20,16 @@ namespace SimpleHitMarker.KillFeed
         public Texture2D SkullTexture { get; set; }
         public Texture2D RedSkullTexture { get; set; }
 
-        public KillFeedUI(ConfigurationManager config)
+        // Ring effect renderer (one per KillFeedUI, handles all active ring animations)
+        private readonly IconRingEffect _ringEffect = new IconRingEffect();
+        
+        // Glow effect renderer
+        private readonly IconGlowEffect _glowEffect = new IconGlowEffect();
+
+        public KillFeedUI(ConfigurationManager config, PresetManager presetManager = null)
         {
             _config = config;
+            _presetManager = presetManager;
         }
 
         private float GetAnchorX()
@@ -45,8 +53,9 @@ namespace SimpleHitMarker.KillFeed
         /// <summary>
         /// 添加新的击杀提示
         /// </summary>
-        public void AddKill(KillInfo killInfo)
+        public void AddKill(KillEntry killInfo)
         {
+            using var _perf = PerfProbe.Measure("Kill.AddKill");
             // 计算连杀数
             int killStreak = CalculateKillStreak(killInfo.KillTime);
             killInfo.KillStreak = killStreak;
@@ -66,6 +75,61 @@ namespace SimpleHitMarker.KillFeed
             };
 
             activeKills.Add(display);
+
+            // Trigger ring effect if preset is active
+            ApplyPresetRingEffect(killInfo);
+        }
+
+        /// <summary>
+        /// Apply ring effect parameters from active preset and trigger for this kill.
+        /// </summary>
+        private void ApplyPresetRingEffect(KillEntry killInfo)
+        {
+            var preset = GetActivePreset();
+            if (preset == null) return;
+
+            // Update ring effect parameters from preset
+            _ringEffect.CritRadius = preset.RingEffectCritRadius;
+            _ringEffect.CritThickness = preset.RingEffectCritThickness;
+            _ringEffect.CritColor = preset.GetRingCritColor();
+            _ringEffect.HeadshotRadius = preset.RingEffectHeadshotRadius;
+            _ringEffect.HeadshotThickness = preset.RingEffectHeadshotThickness;
+            _ringEffect.HeadshotColor = preset.GetRingHeadshotColor();
+            _ringEffect.ExplosionRadius = preset.RingEffectExplosionRadius;
+            _ringEffect.ExplosionThickness = preset.RingEffectExplosionThickness;
+            _ringEffect.ExplosionColor = preset.GetRingExplosionColor();
+            _ringEffect.EffectDelay = preset.RingEffectDelay;
+            _ringEffect.EffectDuration = preset.RingEffectDuration;
+            _ringEffect.ExplosionSecondRingDelay = preset.ExplosionSecondRingDelay;
+            _ringEffect.SetScale(preset.Scale);
+
+            // Determine kill type
+            KillType killType = KillType.Normal;
+            bool ringEnabled = false;
+            if (killInfo.IsHeadshot && preset.EnableHeadshotKill && preset.EnableRingEffectHeadshot)
+            {
+                killType = KillType.Headshot;
+                ringEnabled = true;
+            }
+            // Explosion and crit are not currently tracked in SimpleHitMarker's KillInfo,
+            // but we keep the infrastructure ready for future use.
+
+            _ringEffect.Trigger(Time.time, ringEnabled, killType);
+
+            // Update glow effect parameters from preset
+            _glowEffect.Enabled = preset.EnableIconGlow;
+            _glowEffect.GlowColor = preset.GetGlowColor();
+            _glowEffect.Intensity = preset.IconGlowIntensity;
+            _glowEffect.Size = preset.IconGlowSize;
+        }
+
+        /// <summary>
+        /// Get the currently active KillIconPreset, or null to use config defaults.
+        /// </summary>
+        private KillIconPreset GetActivePreset()
+        {
+            if (_presetManager == null || !_presetManager.IsInitialized) return null;
+            return _presetManager.GetActivePreset();
         }
 
         /// <summary>
@@ -146,6 +210,11 @@ namespace SimpleHitMarker.KillFeed
         {
             if (activeKills.Count == 0) return;
 
+            // This method only draws — state lives in Update() — so everything below is wasted
+            // work on the ~7 non-Repaint events OnGUI receives each frame. Bail early: the
+            // per-call GUIStyle/GUIContent construction further down is expensive.
+            if (Event.current.type != EventType.Repaint) return;
+
             float currentTime = Time.time;
             float killFeedDuration = _config.KillFeedDuration?.Value ?? 5f;
             float skullDisplayDuration = _config.SkullDisplayDuration?.Value ?? 2f;
@@ -217,11 +286,12 @@ namespace SimpleHitMarker.KillFeed
         /// <summary>
         /// 绘制第一行：阵营图标和等级/阵营名
         /// </summary>
-        private void DrawFactionLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
+        private void DrawFactionLine(KillEntry info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
             if (!_config.ShowFactionIcon.Value && !_config.ShowFaction.Value) return;
 
-            Color factionColor = _config.ColorFaction?.Value ?? Color.white;
+            var preset = GetActivePreset();
+            Color factionColor = preset?.GetFactionColor() ?? _config.ColorFaction?.Value ?? Color.white;
             int fontSize = _config.FontSizeFaction?.Value ?? 16;
             float iconSize = _config.FactionIconSize?.Value ?? 24f;
 
@@ -334,9 +404,11 @@ namespace SimpleHitMarker.KillFeed
             float anchorY,
             float currentTime)
         {
-            float skullDisplayDuration = _config.SkullDisplayDuration?.Value ?? 2f;
-            float skullFadeDuration = _config.SkullFadeDuration?.Value ?? 0.3f;
-            float skullSize = _config.SkullSize?.Value ?? 64f;
+            // Use preset values if available, otherwise fall back to config
+            var preset = GetActivePreset();
+            float skullDisplayDuration = preset?.SkullDisplayDuration ?? _config.SkullDisplayDuration?.Value ?? 2f;
+            float skullFadeDuration = preset?.SkullFadeDuration ?? _config.SkullFadeDuration?.Value ?? 0.3f;
+            float skullSize = preset?.SkullSize ?? _config.SkullSize?.Value ?? 64f;
 
             if (!_config.ShowSkull.Value) return;
 
@@ -365,21 +437,33 @@ namespace SimpleHitMarker.KillFeed
                 float skullY = anchorY - (skullSize * 0.5f);
                 Rect skullRect = new Rect(skullX, skullY, skullSize, skullSize);
 
+                // Draw glow effect behind the skull (if enabled by preset)
+                _glowEffect.DrawGlow(skullTex, skullRect, skullAlpha);
+
                 Color originalColor = GUI.color;
                 GUI.color = new Color(1f, 1f, 1f, skullAlpha);
                 GUI.DrawTexture(skullRect, skullTex);
                 GUI.color = originalColor;
+
+                // Draw ring effect for the latest (rightmost) skull
+                if (kill == kills[kills.Count - 1])
+                {
+                    float skullCenterX = skullX + skullSize * 0.5f;
+                    float skullCenterY = skullY + skullSize * 0.5f;
+                    _ringEffect.Render(skullCenterX, skullCenterY, currentTime);
+                }
             }
         }
 
         /// <summary>
         /// 绘制经验值文本（位于锚点右侧）
         /// </summary>
-        private void DrawExperienceText(KillInfo info, float anchorX, float anchorY, float alpha, float lineHeight)
+        private void DrawExperienceText(KillEntry info, float anchorX, float anchorY, float alpha, float lineHeight)
         {
             if (!_config.ShowExperience.Value) return;
 
-            Color expColor = _config.ColorExperience?.Value ?? new Color(1f, 1f, 0.8f, 1f);
+            var preset = GetActivePreset();
+            Color expColor = preset?.GetExperienceColor() ?? _config.ColorExperience?.Value ?? new Color(1f, 1f, 0.8f, 1f);
             int expFontSize = _config.FontSizeExperience?.Value ?? 20;
             float expTextWidth = _config.ExperienceTextWidth?.Value ?? 180f;
             float expOffset = _config.KillFeedExperienceHorizontalOffset?.Value ?? 40f;
@@ -398,11 +482,12 @@ namespace SimpleHitMarker.KillFeed
         /// <summary>
         /// 绘制第三行：玩家名称
         /// </summary>
-        private void DrawPlayerNameLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
+        private void DrawPlayerNameLine(KillEntry info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
             if (!_config.ShowPlayerName.Value) return;
 
-            Color nameColor = _config.ColorPlayerName?.Value ?? new Color(1f, 0.3f, 0.3f, 1f);
+            var preset = GetActivePreset();
+            Color nameColor = preset?.GetPlayerNameColor() ?? _config.ColorPlayerName?.Value ?? new Color(1f, 0.3f, 0.3f, 1f);
             int fontSize = _config.FontSizePlayerName?.Value ?? 18;
 
             GUIStyle fillStyle = new GUIStyle(GUI.skin.label);
@@ -430,11 +515,12 @@ namespace SimpleHitMarker.KillFeed
         /// <summary>
         /// 绘制第四行：击杀详情
         /// </summary>
-        private void DrawKillDetailsLine(KillInfo info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
+        private void DrawKillDetailsLine(KillEntry info, float yPos, float alpha, float anchorX, float lineHeight, float blockWidth)
         {
             if (!_config.ShowKillDetails.Value) return;
 
-            Color detailsColor = _config.ColorKillDetails?.Value ?? new Color(0.8f, 0.8f, 0.8f, 1f);
+            var preset = GetActivePreset();
+            Color detailsColor = preset?.GetDetailsColor() ?? _config.ColorKillDetails?.Value ?? new Color(0.8f, 0.8f, 0.8f, 1f);
             int fontSize = _config.FontSizeKillDetails?.Value ?? 14;
 
             GUIStyle style = new GUIStyle(GUI.skin.label);
@@ -492,7 +578,7 @@ namespace SimpleHitMarker.KillFeed
         /// <summary>
         /// 获取角色显示名称（优先使用本地化后的 WildSpawnType）
         /// </summary>
-        private string GetRoleDisplayName(KillInfo info)
+        private string GetRoleDisplayName(KillEntry info)
         {
             if (info == null)
             {
@@ -528,7 +614,7 @@ namespace SimpleHitMarker.KillFeed
     /// </summary>
     internal class ActiveKillDisplay
     {
-        public KillInfo KillInfo { get; set; }
+        public KillEntry KillInfo { get; set; }
         public float StartTime { get; set; }
         public float SkullTargetOffset { get; set; }
         public float SkullCurrentOffset { get; set; }

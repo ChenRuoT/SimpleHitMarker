@@ -39,11 +39,84 @@ namespace SimpleHitMarker
             new Vector2(1f, 1f)
         };
 
+        // Cached IMGUI resources. Constructing GUIStyles inside OnGUI defeats Unity's text
+        // generation cache — every GUI.Label against a fresh style re-measures and re-rasterizes
+        // its glyphs. With 9 labels per number and 8 OnGUI events per frame that cost ~100ms on
+        // the frame where a hit and a kill land together. See the IMGUI rules in CLAUDE.md.
+        private bool _guiStylesInitialized;
+        private GUIStyle _fillStyle;
+        // private GUIStyle _outlineStyle;   // 描边样式暂时停用
+        private int _cachedFontSize = -1;
+        private readonly List<DamageDisplayEntry> _damageEntriesSnapshot = new List<DamageDisplayEntry>();
+        private readonly GUIContent _damageContent = new GUIContent();
+
+        // 字形预热：首次对某字号做 CalcSize 时，Unity 要光栅化字形并重建字体图集，
+        // 实测单次耗时 ~76ms。若不预热，这笔开销正好落在"第一次命中"那一帧。
+        private readonly GUIContent _primeContent = new GUIContent("0123456789");
+        private volatile bool _fontPrimeRequested = true;
+        private int _primedFontSize = -1;
+
+        /// <summary>
+        /// 请求重新预热字形。EFT 切场景后字体图集可能被回收，所以每次进图都要重来一次。
+        /// 只写一个标志位，可从任意线程调用；真正的预热在 OnGUI（主线程）里做。
+        /// </summary>
+        public void InvalidateFontPrime()
+        {
+            _fontPrimeRequested = true;
+        }
+
+        /// <summary>
+        /// 在 OnGUI 的 Repaint 事件里付掉字形光栅化成本。必须在 OnGUI 内调用（GUI.skin 才有效）。
+        /// </summary>
+        private void PrimeFontCache(int fontSize)
+        {
+            if (!_fontPrimeRequested && _primedFontSize == fontSize) return;
+
+            _fontPrimeRequested = false;
+            _primedFontSize = fontSize;
+
+            try
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                _fillStyle.fontSize = fontSize;
+                _cachedFontSize = fontSize;
+                // 测量一次包含全部数字的字符串，一次性生成伤害数字会用到的所有字形。
+                _fillStyle.CalcSize(_primeContent);
+
+                sw.Stop();
+                if (sw.ElapsedMilliseconds > 5)
+                {
+                    _log?.LogInfo($"[SimpleHitMarker] Damage font primed (size={fontSize}) in {sw.ElapsedMilliseconds} ms");
+                }
+            }
+            catch (Exception ex)
+            {
+                _log?.LogWarning($"[SimpleHitMarker] Damage font priming failed (non-critical): {ex}");
+            }
+        }
+
         public DamageIndicatorUI(ConfigurationManager config, ManualLogSource log)
         {
             _config = config;
             _log = log;
             LoadHitTexture();
+        }
+
+        /// <summary>
+        /// Build the damage-number styles once. Must run inside OnGUI — GUI.skin is only valid there.
+        /// </summary>
+        private void EnsureGuiStyles()
+        {
+            if (_guiStylesInitialized) return;
+
+            _fillStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleLeft
+            };
+            // _outlineStyle = new GUIStyle(_fillStyle);   // 描边样式暂时停用
+
+            _guiStylesInitialized = true;
         }
 
         private void LoadHitTexture()
@@ -119,11 +192,23 @@ namespace SimpleHitMarker
 
         public void OnGUI()
         {
+            // --- 0. 字形预热 ---
+            // 在空闲帧付掉字体图集的生成成本，否则它会落在第一次命中那一帧（实测 ~76ms）。
+            // 预热后本方法每帧只是一次布尔判断。
+            if (Event.current.type == EventType.Repaint)
+            {
+                EnsureGuiStyles();
+                PrimeFontCache(Mathf.Max(1, _config.DamageTextSize.Value));
+            }
+
             // --- 1. Draw Hit Marker Icon ---
             // The icon's visibility is controlled by the LAST hit time.
             if (_hitDetected && Time.time - _hitTime < _config.HitDuration.Value)
             {
-                DrawHitMarkerIcon();
+                using (PerfProbe.Measure("Dmg.Icon"))
+                {
+                    DrawHitMarkerIcon();
+                }
             }
             else
             {
@@ -149,6 +234,9 @@ namespace SimpleHitMarker
             {
                 return;
             }
+
+            // Texture drawing only takes effect on Repaint; skip the other ~7 events per frame.
+            if (Event.current.type != EventType.Repaint) return;
 
             float hitDurationValue = _config.HitDuration.Value;
             float t = (Time.time - _hitTime) / hitDurationValue;
@@ -186,30 +274,48 @@ namespace SimpleHitMarker
 
         private void DrawDamageNumbers()
         {
-            List<DamageDisplayEntry> entriesSnapshot;
             float now = Time.time;
 
-            lock (_damageEntriesLock)
+            using (PerfProbe.Measure("Dmg.Snap"))
             {
-                // Optional: Prune again to ensure we don't draw extremely old stuff
-                PruneDamageEntriesLocked(now);
-                entriesSnapshot = new List<DamageDisplayEntry>(_damageEntries);
+                lock (_damageEntriesLock)
+                {
+                    // Optional: Prune again to ensure we don't draw extremely old stuff
+                    PruneDamageEntriesLocked(now);
+                    // Reuse the snapshot list instead of allocating one per OnGUI call.
+                    _damageEntriesSnapshot.Clear();
+                    _damageEntriesSnapshot.AddRange(_damageEntries);
+                }
             }
 
-            if (entriesSnapshot.Count == 0) return;
+            if (_damageEntriesSnapshot.Count == 0) return;
 
-            // Prepare styles
-            Color damageColor = _config.DamageTextColor.Value;
-            int fontSize = Mathf.Max(1, _config.DamageTextSize.Value);
+            // Text measurement and drawing only have an effect on Repaint. OnGUI runs ~8 times a
+            // frame (Layout, input, Repaint), so bailing here skips the expensive CalcSize/Label
+            // work on every non-drawing event.
+            if (Event.current.type != EventType.Repaint) return;
 
-            GUIStyle fillStyle = new GUIStyle(GUI.skin.label)
+            Color damageColor;
+            using (PerfProbe.Measure("Dmg.Styles"))
             {
-                alignment = TextAnchor.MiddleLeft,
-                fontSize = fontSize
-            };
+                EnsureGuiStyles();
 
-            // Outline style
-            GUIStyle outlineStyle = new GUIStyle(fillStyle);
+                // Prepare styles
+                damageColor = _config.DamageTextColor.Value;
+                int fontSize = Mathf.Max(1, _config.DamageTextSize.Value);
+
+                // Only assign when it actually changed — writing fontSize invalidates Unity's
+                // cached text generation for the style.
+                if (fontSize != _cachedFontSize)
+                {
+                    _cachedFontSize = fontSize;
+                    _fillStyle.fontSize = fontSize;
+                    // _outlineStyle.fontSize = fontSize;
+                }
+            }
+
+            GUIStyle fillStyle = _fillStyle;
+            // GUIStyle outlineStyle = _outlineStyle;
 
             float lifetime = _config.HitDuration.Value;
 
@@ -229,30 +335,42 @@ namespace SimpleHitMarker
 
             float paddingFromMarker = _config.DamageTextPadding.Value;
             float spacingBetweenNumbers = Mathf.Clamp(_config.DamageMultiTextPadding.Value, 0f, 200f);
-            float globalOutlineAlpha = Mathf.Clamp01(_config.DamageTextOutlineOpacity.Value);
-            float outlineThickness = Mathf.Clamp(_config.DamageTextOutlineThickness.Value, 0.5f, 10f);
+            // 描边样式暂时停用：它是 9 次 GUI.Label 中的 8 次，是本帧最大开销来源，
+            // 且这套 style 只在配置里开了入口，并未真正接入预设(Preset/StyleCatalog)核心。
+            // float globalOutlineAlpha = Mathf.Clamp01(_config.DamageTextOutlineOpacity.Value);
+            // float outlineThickness = Mathf.Clamp(_config.DamageTextOutlineThickness.Value, 0.5f, 10f);
 
             // Start drawing to the right of the icon
             float currentX = center.x + (iconSize / 2f) + paddingFromMarker;
             float centerY = center.y;
 
-            GUIContent content = new GUIContent();
+            GUIContent content = _damageContent;
             Color originalGuiColor = GUI.color;
 
-            // Iterate through entries. 
+            // Iterate through entries.
             // Since we Insert(0) new entries, the first item in the list is the NEWEST.
             // We want the newest item to be at 'currentX', and older items pushed further right.
-            foreach (var entry in entriesSnapshot)
+            for (int i = 0; i < _damageEntriesSnapshot.Count; i++)
             {
+                var entry = _damageEntriesSnapshot[i];
                 float age = now - entry.Timestamp;
                 if (age >= lifetime) continue; // Should be caught by prune, but safety check
+
+                // 护甲吸收了全部伤害时 DidBodyDamage 为 0，此时仍显示命中标记，
+                // 但不绘制一个无意义的 "0"
+                if (entry.Damage < 0.5f) continue;
 
                 float t = age / lifetime;
                 float entryAlpha = 1f - t; // Fade out over time independently
 
                 // Set content
                 content.text = entry.Damage.ToString("0");
-                Vector2 textSize = fillStyle.CalcSize(content);
+
+                Vector2 textSize;
+                using (PerfProbe.Measure("Dmg.CalcSize"))
+                {
+                    textSize = fillStyle.CalcSize(content);
+                }
 
                 Rect textRect = new Rect(
                     currentX,
@@ -265,15 +383,21 @@ namespace SimpleHitMarker
                 Color currentTextColor = new Color(damageColor.r, damageColor.g, damageColor.b, entryAlpha);
                 fillStyle.normal.textColor = currentTextColor;
 
-                Color baseOutlineColor = entry.IsHeadshot
-                    ? _config.DamageTextHeadshotOutlineColor.Value
-                    : _config.DamageTextOutlineColor.Value;
+                // 描边暂时停用（见上方说明）。恢复时把下面这段取消注释，并改回 DrawOutlinedLabel。
+                // Color baseOutlineColor = entry.IsHeadshot
+                //     ? _config.DamageTextHeadshotOutlineColor.Value
+                //     : _config.DamageTextOutlineColor.Value;
+                //
+                // // Combine global outline opacity with the entry's fade status
+                // float finalOutlineAlpha = baseOutlineColor.a * globalOutlineAlpha * entryAlpha;
+                // outlineStyle.normal.textColor = new Color(baseOutlineColor.r, baseOutlineColor.g, baseOutlineColor.b, finalOutlineAlpha);
+                //
+                // DrawOutlinedLabel(textRect, content, fillStyle, outlineStyle, outlineThickness);
 
-                // Combine global outline opacity with the entry's fade status
-                float finalOutlineAlpha = baseOutlineColor.a * globalOutlineAlpha * entryAlpha;
-                outlineStyle.normal.textColor = new Color(baseOutlineColor.r, baseOutlineColor.g, baseOutlineColor.b, finalOutlineAlpha);
-
-                DrawOutlinedLabel(textRect, content, fillStyle, outlineStyle, outlineThickness);
+                using (PerfProbe.Measure("Dmg.Label"))
+                {
+                    GUI.Label(textRect, content, fillStyle);
+                }
 
                 // Push position to the right for the next (older) number
                 currentX += textSize.x + spacingBetweenNumbers;

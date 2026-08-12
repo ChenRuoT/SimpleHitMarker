@@ -6,7 +6,7 @@ namespace SimpleHitMarker.KillFeed
     /// <summary>
     /// 击杀信息数据结构
     /// </summary>
-    public class KillInfo
+    public class KillEntry
     {
         /// <summary>
         /// 被击杀的玩家

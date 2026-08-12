@@ -1,4 +1,5 @@
 using EFT;
+using EFT.Ballistics;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using System;
@@ -32,19 +33,24 @@ namespace SimpleHitmarker.DamagePatch
         /// <summary>
         /// 伤害命中事件处理逻辑
         /// </summary>
-        public static void OnBeingHit(DamageInfoStruct damageInfo, EBodyPart bodyPart, float absorbed)
+        public static void OnBeingHit(DamageInfo damageInfo, EBodyPart bodyPart, float absorbed)
         {
             try
             {
                 // 获取攻击者信息
-                IPlayerOwner aggressor = damageInfo.Player;
+                IObserverToPlayerBridge aggressor = damageInfo.Player;
                 if (aggressor?.iPlayer == null) return;
 
                 // 只有攻击者是本地玩家时才处理
                 if (!aggressor.iPlayer.IsYourPlayer) return;
 
-                // 只有伤害大于0时才处理，规避单发子弹在同个部位多次计算伤害情况
-                if (damageInfo.DidArmorDamage > 0.01f && damageInfo.DidBodyDamage > 0.01f) return;
+                // 每颗子弹只会触发一次 BeingHitAction（Player.ApplyShot 依次调用
+                // ProceedLocalAbsorbedDamage 设置 DidArmorDamage、再调用 ApplyDamageInfo
+                // 设置 DidBodyDamage 并触发事件），因此不存在需要去重的重复事件。
+                // 旧逻辑在“护甲和身体同时受伤”时 return，恰好丢弃了击中有甲目标这一最常见的情况
+                // （例如爆头戴头盔的 PMC），导致致命一击不显示命中标记。
+                // 这里只跳过完全没有造成任何伤害的事件。
+                if (damageInfo.DidArmorDamage <= 0.01f && damageInfo.DidBodyDamage <= 0.01f) return;
 
                 // 注册命中事件（显示 UI 和播放音效）
                 bool isHeadshot = bodyPart == EBodyPart.Head;
